@@ -62,6 +62,8 @@ func (f *fake) run(_ context.Context, name string, args ...string) ([]byte, erro
 			return []byte(f.panes), nil
 		}
 		return nil, nil
+	case "open":
+		return nil, nil
 	case "pgrep":
 		if f.running[args[1]] {
 			return []byte("123\n"), nil

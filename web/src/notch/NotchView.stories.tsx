@@ -40,6 +40,8 @@ const meta: Meta<typeof NotchView> = {
     onOpenFull: noop,
     agentsOpen: true,
     onAgentsOpen: noop,
+    onFinishedDone: noop,
+    onShowSource: noop,
   },
   decorators: [
     (Story) => (

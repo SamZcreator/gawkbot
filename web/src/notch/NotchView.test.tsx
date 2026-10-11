@@ -10,7 +10,7 @@ import { agentsSummary } from "./NotchPanel";
 import { DOT_BAND, dotsThatFit, stripShapeFor } from "./NotchStrip";
 import { NotchView, type NotchViewProps } from "./NotchView";
 import { byNeed } from "./order";
-import type { NotchState } from "./types";
+import type { NotchAgent, NotchState } from "./types";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -44,6 +44,7 @@ function notchProps(overrides: Partial<NotchViewProps> = {}): NotchViewProps {
     agentsOpen: false,
     onAgentsOpen: vi.fn(),
     onFinishedDone: vi.fn(),
+    onShowSource: vi.fn(),
     ...overrides,
   };
 }
@@ -591,6 +592,60 @@ describe("open notch", () => {
     expect(card).toHaveTextContent(
       "Pricing page rebuilt; two plans left to write.",
     );
+  });
+
+  it("opens a session where it runs, from its card and its row", async () => {
+    const session: NotchAgent = {
+      slug: "cc-1a2b3c4d",
+      name: "Fix the flaky test",
+      mood: "idle",
+      kind: "session",
+      tool: "claude-code",
+      tool_name: "Claude Code",
+      state: "your_turn",
+      can_message: true,
+    };
+    const state: NotchState = {
+      ...BUSY_OFFICE,
+      agents: [
+        ...BUSY_OFFICE.agents,
+        session,
+        {
+          ...session,
+          slug: "cx-9",
+          name: "Tidy",
+          tool: "codex",
+          state: "quiet",
+        },
+        { ...session, slug: "cc-2", name: "Old", open: false, state: "quiet" },
+      ],
+      finished: [
+        {
+          id: "finished:cc-1a2b3c4d@1",
+          kind: "finished",
+          from: "cc-1a2b3c4d",
+          question: "Done.",
+        },
+      ],
+    };
+    const props = renderNotch({ expanded: true, agentsOpen: true, state });
+    const card = screen.getByTestId("notch-finished-cc-1a2b3c4d");
+    await userEvent.click(
+      within(card).getByRole("button", { name: "Open in its window" }),
+    );
+    expect(props.onShowSource).toHaveBeenCalledWith("cc-1a2b3c4d");
+    expect(
+      screen.getByRole("button", { name: "Open in Codex: Tidy" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Resume in Terminal: Old" }),
+    ).toBeInTheDocument();
+    // An office bot lives in gawkbot: it has no such button.
+    expect(
+      within(screen.getByTestId("notch-agent-designer")).queryByRole("button", {
+        name: /Open in its window|Open in Codex|Resume in Terminal/,
+      }),
+    ).toBeNull();
   });
 
   it("does not send the human to a window that is closed", async () => {

@@ -26,3 +26,8 @@ export function sendMessage(channel: string, content: string) {
 export function markFinishedSeen(id: string) {
   return post("/notch/finished/seen", { id });
 }
+
+/** Opens a terminal session where it runs (its terminal, or Codex). */
+export function showSession(slug: string) {
+  return post("/agents/local/sessions/show", { slug });
+}

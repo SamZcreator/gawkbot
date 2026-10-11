@@ -56,6 +56,8 @@ export interface PanelProps {
   onOpenFull: () => void;
   /** Marks a finished turn done without replying to it. */
   onFinishedDone: (id: string) => void;
+  /** Opens a terminal session where it runs: its terminal, or Codex. */
+  onShowSource: (slug: string) => void;
   /** The agent list is folded away until asked for. */
   agentsOpen: boolean;
   onAgentsOpen: (open: boolean) => void;
@@ -268,6 +270,18 @@ function Question({
 }
 
 /**
+ * What opening a terminal session where it runs is called, or null for an
+ * office bot (whose home is gawkbot) and a session not yet a bot.
+ */
+export function sourceLabel(agent: NotchAgent | undefined): string | null {
+  if (agent?.kind !== "session" || agent.slug.startsWith("session.")) {
+    return null;
+  }
+  if (agent.tool === "codex") return "Open in Codex";
+  return agent.open === false ? "Resume in Terminal" : "Open in its window";
+}
+
+/**
  * A turn that ended and is waiting on the human: what it last said, and a
  * reply straight to it. Done hides this turn; the next one shows again.
  */
@@ -278,6 +292,7 @@ function Finished({
   onReply,
   onDone,
   onOpen,
+  onShowSource,
 }: {
   item: NotchAttention;
   agent: NotchAgent | undefined;
@@ -285,7 +300,9 @@ function Finished({
   onReply: PanelProps["onReply"];
   onDone: PanelProps["onFinishedDone"];
   onOpen: PanelProps["onOpen"];
+  onShowSource: PanelProps["onShowSource"];
 }) {
+  const source = sourceLabel(agent);
   const name = agent?.name ?? item.from_name ?? item.from;
   const [more, setMore] = useState(false);
   const recap = item.recap;
@@ -379,7 +396,17 @@ function Finished({
           >
             Done
           </button>
-          {agent?.kind === "session" ? null : (
+          {source ? (
+            <button
+              type="button"
+              className="nbtn is-quiet"
+              title="Its whole conversation, where it runs"
+              onClick={() => onShowSource(item.from)}
+            >
+              {source}
+            </button>
+          ) : null}
+          {item.from.startsWith("session.") ? null : (
             <button
               type="button"
               className="nbtn is-quiet"
@@ -498,6 +525,7 @@ interface AgentRowProps {
   channel: string | null;
   onReply: (target: ReplyTarget) => void;
   onOpen: (path: string) => void;
+  onShowSource: (slug: string) => void;
 }
 
 /**
@@ -506,7 +534,15 @@ interface AgentRowProps {
  * opens it in the full app. A session that cannot be messaged yet opens
  * what it last said instead, so the human still sees what it is waiting on.
  */
-function AgentRow({ agent, phase, channel, onReply, onOpen }: AgentRowProps) {
+function AgentRow({
+  agent,
+  phase,
+  channel,
+  onReply,
+  onOpen,
+  onShowSource,
+}: AgentRowProps) {
+  const source = sourceLabel(agent);
   const [open, setOpen] = useState(false);
   const session = agent.kind === "session";
   const toolName = agent.tool_name ?? "";
@@ -569,6 +605,20 @@ function AgentRow({ agent, phase, channel, onReply, onOpen }: AgentRowProps) {
           </span>
         ) : null}
       </button>
+      {source ? (
+        <button
+          type="button"
+          className="nagent-open"
+          aria-label={`${source}: ${agent.name}`}
+          title={source}
+          onClick={() => onShowSource(agent.slug)}
+        >
+          <svg className="nagent-source" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+            <path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3.5" />
+          </svg>
+        </button>
+      ) : null}
       {channel ? (
         <button
           type="button"
@@ -804,6 +854,7 @@ export function NotchPanel(props: PanelProps) {
                   channel={agent ? agentChannel(agent, state) : null}
                   onReply={props.onReply}
                   onDone={props.onFinishedDone}
+                  onShowSource={props.onShowSource}
                   onOpen={props.onOpen}
                 />
               );
@@ -854,6 +905,7 @@ export function NotchPanel(props: PanelProps) {
                   channel={agentChannel(a, state)}
                   onReply={props.onReply}
                   onOpen={props.onOpen}
+                  onShowSource={props.onShowSource}
                 />
               ))}
             </div>

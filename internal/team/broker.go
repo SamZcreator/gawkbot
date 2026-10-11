@@ -714,6 +714,7 @@ func (b *Broker) StartOnPort(port int) error {
 	mux.HandleFunc("/agents/local/adopt", b.requireAuth(b.handleAdoptLocalAgents))
 	mux.HandleFunc("/agents/local/sessions", b.requireAuth(b.handleLocalSessions))
 	mux.HandleFunc("/agents/local/sessions/transcript", b.requireAuth(b.handleSessionTranscript))
+	mux.HandleFunc("/agents/local/sessions/show", b.requireAuth(b.handleSessionShow))
 	// One-poll snapshot for the Mac notch (broker_notch.go). Owner-only.
 	mux.HandleFunc("/notch/state", b.requireAuth(b.handleNotchState))
 	mux.HandleFunc("/notch/finished/seen", b.requireAuth(b.handleNotchFinishedSeen))
