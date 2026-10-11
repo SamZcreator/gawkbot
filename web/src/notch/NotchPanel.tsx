@@ -261,7 +261,7 @@ function Question({
             className="nbtn is-quiet"
             onClick={() => onOpen(channelPath(item.channel))}
           >
-            Open
+            Open in gawkbot
           </button>
         </div>
       </div>
@@ -412,7 +412,7 @@ function Finished({
               className="nbtn is-quiet"
               onClick={() => onOpen(`/agents/${encodeURIComponent(item.from)}`)}
             >
-              Open
+              Open in gawkbot
             </button>
           )}
         </div>

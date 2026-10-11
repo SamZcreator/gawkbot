@@ -594,6 +594,32 @@ describe("open notch", () => {
     );
   });
 
+  it("names the way into the full app on every card", () => {
+    const state: NotchState = {
+      ...BUSY_OFFICE,
+      finished: [
+        {
+          id: "finished:designer@1",
+          kind: "finished",
+          from: "designer",
+          question: "Done.",
+        },
+      ],
+    };
+    renderNotch({ expanded: true, state });
+    const card = screen.getByTestId("notch-finished-designer");
+    expect(
+      within(card).getByRole("button", { name: "Open in gawkbot" }),
+    ).toBeInTheDocument();
+    const question = screen.getByTestId(
+      `notch-attention-${BUSY_OFFICE.attention[0].id}`,
+    );
+    expect(
+      within(question).getByRole("button", { name: "Open in gawkbot" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open" })).toBeNull();
+  });
+
   it("opens a session where it runs, from its card and its row", async () => {
     const session: NotchAgent = {
       slug: "cc-1a2b3c4d",
