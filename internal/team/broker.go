@@ -141,6 +141,7 @@ type Broker struct {
 	sharedMemory        map[string]map[string]string // namespace → key → value
 	lastTaggedAt        map[string]time.Time         // when each bot was last @mentioned
 	observedModels      map[string]string            // bot slug → model its last turn ran on; in-memory; guarded by mu
+	notchSeen           map[string]struct{}          // finished turns the owner marked done in the notch; in-memory; guarded by mu
 	sessionAgents       sessionAgentState            // terminal sessions kept as members (broker_session_agents.go); guarded by mu
 	runtimeDefaultsMu   sync.Mutex                   // guards the three fields below; never held with mu
 	runtimeDefaultsVal  runtimeDefaults
@@ -714,6 +715,7 @@ func (b *Broker) StartOnPort(port int) error {
 	mux.HandleFunc("/agents/local/sessions", b.requireAuth(b.handleLocalSessions))
 	// One-poll snapshot for the Mac notch (broker_notch.go). Owner-only.
 	mux.HandleFunc("/notch/state", b.requireAuth(b.handleNotchState))
+	mux.HandleFunc("/notch/finished/seen", b.requireAuth(b.handleNotchFinishedSeen))
 	mux.HandleFunc("/channels", b.requireAuth(b.handleChannels))
 	mux.HandleFunc("/channels/dm", b.requireAuth(b.handleCreateDM))
 	mux.HandleFunc("/channels/generate", b.requireAuth(b.handleGenerateChannel))

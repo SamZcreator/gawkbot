@@ -108,6 +108,12 @@ export interface NotchState {
   agents: NotchAgent[];
   attention: NotchAttention[];
   /**
+   * Every turn that ended and is waiting on the human (kind "finished"),
+   * newest first. Not open requests: reply by message, or mark done.
+   * Absent from a broker too old to send it.
+   */
+  finished?: NotchAttention[];
+  /**
    * The person's one switch (Settings, Notch) for bots leaving the notch to
    * get attention. Only an explicit false turns it off; a broker too old to
    * send it means on.

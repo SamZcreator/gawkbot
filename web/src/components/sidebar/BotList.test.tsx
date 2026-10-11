@@ -620,50 +620,36 @@ describe("<BotList> sessions on this Mac", () => {
     );
   }
 
-  it("lists sessions in their own titled group below the office's bots", () => {
-    // Sessions first in the payload: the grouping must not depend on order.
-    setMembers([...sessions, ...officeBots]);
-    const { container, getByTestId } = renderList();
-
-    const group = getByTestId("sidebar-sessions-group");
-    expect(group.textContent).toContain("Sessions on this Mac");
-    expect(slugsIn(group)).toEqual(["cc-1a2b3c4d", "cx-0199f3aa"]);
-
-    const groups = Array.from(container.querySelectorAll(".sidebar-bot-group"));
-    expect(groups.length).toBe(3);
-    expect(groups[groups.length - 1]).toBe(group);
-  });
-
-  it("never mixes a session into the office's own groups, or a bot into the sessions", () => {
+  it("lists sessions with the office's bots, under the lead, with a terminal mark", () => {
     setMembers([sessions[0], officeBots[0], sessions[1], officeBots[1]]);
-    const { container, getByTestId } = renderList();
+    const { container, queryByTestId } = renderList();
 
+    expect(queryByTestId("sidebar-sessions-group")).toBeNull();
+    expect(container.textContent).not.toContain("Sessions on this Mac");
     expect(slugsIn(container.querySelector(".sidebar-bot-group--ceo"))).toEqual(
       ["cos"],
     );
     expect(
-      slugsIn(container.querySelector(".sidebar-bot-group--specialists")),
-    ).toEqual(["tess"]);
-    expect(slugsIn(getByTestId("sidebar-sessions-group"))).toEqual([
-      "cc-1a2b3c4d",
-      "cx-0199f3aa",
-    ]);
+      slugsIn(
+        container.querySelector(".sidebar-bot-group--specialists"),
+      ).sort(),
+    ).toEqual(["cc-1a2b3c4d", "cx-0199f3aa", "tess"]);
     // Every member is drawn exactly once across the whole list.
-    expect(slugsIn(container)).toEqual([
-      "cos",
-      "tess",
-      "cc-1a2b3c4d",
-      "cx-0199f3aa",
-    ]);
-  });
-
-  it("renders no sessions group, and no heading, when there are no sessions", () => {
-    setMembers(officeBots);
-    const { container, queryByTestId } = renderList();
-
-    expect(slugsIn(container)).toEqual(["cos", "tess"]);
-    expect(queryByTestId("sidebar-sessions-group")).toBeNull();
-    expect(container.textContent).not.toContain("Sessions on this Mac");
+    expect(slugsIn(container)).toHaveLength(4);
+    // The mark is the one difference, and only sessions carry it.
+    expect(
+      container.querySelector(
+        '[data-testid="session-mark-cc-1a2b3c4d"][aria-label="Claude Code session on this Mac"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-testid="session-mark-cx-0199f3aa"][aria-label="Codex session on this Mac"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('[data-testid="session-mark-tess"]'),
+    ).toBeNull();
   });
 
   it("shows what a bot row shows, plus the folder the session works in", () => {
@@ -761,11 +747,11 @@ describe("<BotList> sessions on this Mac", () => {
     }
   });
 
-  it("shows the sessions group even when the office has no bots of its own", () => {
+  it("lists sessions even when the office has no bots of its own", () => {
     setMembers(sessions);
-    const { container, getByTestId } = renderList();
+    const { container } = renderList();
 
-    expect(slugsIn(getByTestId("sidebar-sessions-group")).length).toBe(2);
+    expect(slugsIn(container).length).toBe(2);
     expect(container.textContent).not.toContain("No bots online");
   });
 

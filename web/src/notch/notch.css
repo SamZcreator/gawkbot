@@ -185,11 +185,14 @@ kbd {
 .ndot-done {
   background: var(--mood-done);
 }
+/* Stuck is red too, but a ring: something broke, not a question. */
 .ndot-error {
-  background: var(--mood-error);
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--mood-error);
 }
+/* A question only the human can answer is as red as a stuck bot. */
 .ndot-needs_you {
-  background: var(--mood-needs-you);
+  background: var(--mood-error);
 }
 .ndot-working {
   background: var(--dot-working);
@@ -711,9 +714,6 @@ kbd {
 }
 .nteam-toggle.is-open .nteam-chev {
   transform: rotate(90deg);
-}
-.ngroup + .ngroup {
-  margin-top: 10px;
 }
 .nq-actions {
   display: flex;
@@ -1537,4 +1537,26 @@ kbd {
   50% {
     transform: translateY(-2px);
   }
+}
+
+/* A session on this Mac, in the same list as the office bots. */
+.nsession-mark {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  color: var(--notch-text-tertiary);
+}
+.nsession-mark svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ntag.is-turn {
+  color: var(--mood-done);
+  background: rgba(48, 209, 88, 0.12);
 }

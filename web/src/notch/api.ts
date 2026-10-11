@@ -21,3 +21,8 @@ export function answerWithText(id: string, customText: string) {
 export function sendMessage(channel: string, content: string) {
   return post("/messages", { from: "you", channel, content });
 }
+
+/** Marks a finished turn done without answering it. */
+export function markFinishedSeen(id: string) {
+  return post("/notch/finished/seen", { id });
+}

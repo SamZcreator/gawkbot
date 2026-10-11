@@ -168,6 +168,9 @@ type notchState struct {
 	Headline   string           `json:"headline"`
 	Agents     []notchAgent     `json:"agents"`
 	Attention  []notchAttention `json:"attention"`
+	// Finished is every turn that ended and is waiting on the human, newest
+	// first (broker_notch_finished.go). Not answerable via /requests.
+	Finished []notchAttention `json:"finished"`
 	// JumpOut is the person's one switch for bots leaving the notch to get
 	// attention (it opening by itself, a peek, a fly-in, chatter). The
 	// notch reads it on every poll, so a change in Settings needs no restart.
@@ -194,6 +197,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	b.mu.Unlock()
 	state, sessions = b.claimNotchSessionRows(state, sessions, now)
 	state = withNotchSessions(state, sessions, now)
+	state = b.withNotchFinished(state)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()
@@ -378,6 +382,16 @@ func (b *Broker) notchStateLocked(now time.Time, defaults runtimeDefaults, owner
 		agent.Runtime = &runtime
 		snap := b.activity[m.Slug]
 		agent.Mood, agent.Detail = notchMood(snap, needsYou[m.Slug], now)
+		if agent.Kind != notchAgentSession {
+			// When it last did anything: the notch lists the newest first.
+			agent.UpdatedAt = snap.LastTime
+			if notchBotFinished(snap, needsYou[m.Slug], now) {
+				// Its turn is over and the reply waits on the human: the
+				// same "your turn" a session shows.
+				agent.State = agentdetect.SessionYourTurn
+				agent.LastSaid = notchFinishedSummary(snap.Detail)
+			}
+		}
 		counts[agent.Mood]++
 		state.Agents = append(state.Agents, agent)
 	}

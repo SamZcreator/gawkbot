@@ -6,6 +6,7 @@ import {
   answerRequest,
   answerWithText,
   getNotchState,
+  markFinishedSeen,
   NOTCH_QUERY_KEY,
   sendMessage,
 } from "./api";
@@ -27,7 +28,9 @@ import {
 import type { ComposerState, ReplyTarget } from "./NotchPanel";
 import { stageHeight, stripShapeFor } from "./NotchStrip";
 import { NotchView } from "./NotchView";
+import { finishedSlugs } from "./order";
 import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
+import type { NotchState } from "./types";
 import { deliverNativeVoice, voiceAvailable } from "./voice";
 
 export { moodTransitions, newAttentionIds } from "./hooks";
@@ -121,10 +124,11 @@ export function NotchApp({
   const [cheer, setCheer] = useState(0);
 
   // On a Mac with a notch the strip is exactly the notch while nothing is
-  // going on. Agents at work show as a centred row of small coloured dots
-  // and spinners just under it; something that needs the human grows ears
-  // beside it, wide enough for faces. Everything else is in the panel.
-  const shape = stripShapeFor(measured, attention.length, agents);
+  // going on, and every state is a small coloured dot in a centred row just
+  // under it: red for an answer needed, green for a finished turn, orange
+  // for work. Everything else is in the panel.
+  const finished = useMemo(() => finishedSlugs(state), [state]);
+  const shape = stripShapeFor(measured, finished, agents);
   const geometry = useMemo(
     () => ({ ...measured, earWidth: shape.earWidth, band: shape.band }),
     [measured, shape.earWidth, shape.band],
@@ -181,6 +185,22 @@ export function NotchApp({
     },
     onError: (err) =>
       setError(err instanceof Error ? err.message : "Could not send that"),
+  });
+
+  // Done on a finished turn: gone from the list at once, then for good.
+  const finishedDone = useMutation({
+    mutationFn: (id: string) => markFinishedSeen(id),
+    onMutate: (id) => {
+      setError(null);
+      queryClient.setQueryData<NotchState>(NOTCH_QUERY_KEY, (s) =>
+        s
+          ? { ...s, finished: (s.finished ?? []).filter((f) => f.id !== id) }
+          : s,
+      );
+    },
+    onError: (err) =>
+      setError(err instanceof Error ? err.message : "Could not mark that done"),
+    onSettled: refresh,
   });
 
   const setVoice = useVoice(setComposer, setError);
@@ -296,6 +316,7 @@ export function NotchApp({
         onOpenFull={openFull}
         agentsOpen={agentsOpen}
         onAgentsOpen={setAgentsOpen}
+        onFinishedDone={(id) => finishedDone.mutate(id)}
       />
     </div>
   );

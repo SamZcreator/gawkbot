@@ -1,6 +1,7 @@
 import type { BanterLine, Boredom } from "./antics";
 import { NotchArrival } from "./NotchArrival";
 import { NotchBot } from "./NotchBot";
+import { byNeed, type DotMood, dotMood, finishedSlugs } from "./order";
 import type { Mood, NotchAgent, NotchGeometry, NotchState } from "./types";
 
 // The collapsed notch: a black strip as tall as the camera housing and one
@@ -48,24 +49,6 @@ const COMPACT_EAR = 60;
 /** The band of dots under the notch, at rest. */
 export const DOT_BAND = 10;
 
-/**
- * What an agent's dot says: working, stuck, or finished. A terminal session
- * waiting on the human has finished its turn, so it reads as done. Anything
- * else has no dot.
- */
-export function dotMood(a: NotchAgent): "working" | "error" | "done" | null {
-  if (a.mood === "working" || a.mood === "error" || a.mood === "done") {
-    return a.mood;
-  }
-  if (a.kind === "session" && a.state === "your_turn") return "done";
-  return null;
-}
-
-/** An agent that shows as a dot at rest. */
-function busy(a: NotchAgent): boolean {
-  return dotMood(a) !== null;
-}
-
 /** What the strip looks like now, and so how big a window it needs. */
 export interface StripShape {
   /** Ears beside the notch, for faces. */
@@ -75,18 +58,18 @@ export interface StripShape {
 }
 
 /**
- * On a Mac without a notch, always the pill. With one: faces in ears when
- * something needs the human, a band of dots under the notch while anyone
- * is at work, and nothing beyond the notch when the office is still.
+ * On a Mac without a notch, always the pill. With one, every state is a
+ * dot in a band under the notch, and when nothing is going on there is
+ * nothing beyond the notch at all.
  */
 export function stripShapeFor(
   g: NotchGeometry,
-  attention: number,
+  finished: ReadonlySet<string>,
   agents: readonly NotchAgent[],
 ): StripShape {
-  if (g.notchWidth <= 0 || attention > 0)
-    return { earWidth: g.earWidth, band: 0 };
-  return { earWidth: 0, band: agents.some(busy) ? DOT_BAND : 0 };
+  if (g.notchWidth <= 0) return { earWidth: g.earWidth, band: 0 };
+  const any = agents.some((a) => dotMood(a, finished) !== null);
+  return { earWidth: 0, band: any ? DOT_BAND : 0 };
 }
 
 /** How many dots fit in a band as wide as the notch. */
@@ -95,11 +78,15 @@ export function dotsThatFit(notchWidth: number): number {
   return Math.max(1, Math.floor((notchWidth - 12) / 10));
 }
 
-const DOT_WORDS = { working: "working", error: "stuck", done: "finished" };
+const DOT_WORDS: Record<DotMood, string> = {
+  needs_you: "needs your answer",
+  working: "working",
+  error: "stuck",
+  done: "finished, your turn",
+};
 
-/** One state at a glance, always a dot: orange working, red stuck, green done. */
-function StateDot({ agent }: { agent: NotchAgent }) {
-  const mood = dotMood(agent) ?? "done";
+/** One state at a glance: red asking or stuck, green your turn, orange working. */
+function StateDot({ agent, mood }: { agent: NotchAgent; mood: DotMood }) {
   return (
     <span
       className={`ndot ndot-${mood}`}
@@ -109,7 +96,7 @@ function StateDot({ agent }: { agent: NotchAgent }) {
     />
   );
 }
-/** Among the ones not asking: a snag first, then a finish, then work. */
+/** Asking first, then a snag, then a finish, then work. */
 const CREW_RANK: Record<Mood, number> = {
   needs_you: 0,
   error: 1,
@@ -164,17 +151,16 @@ export function NotchStrip({
   const crew = active.slice(0, cap - askers.length);
   const hidden = gang.length + active.length - askers.length - crew.length;
 
-  // At rest: the notch, and under it one centred row of dots and spinners,
-  // the lead first, then by how much each wants a look. As many as fit in
-  // the notch's own width.
+  // On a Mac with a notch: the notch, and under it one centred row of
+  // dots, red then green then orange, the latest first in each (order.ts).
+  // As many as fit in the notch's own width.
   if (geometry.band > 0) {
-    const dots = (state?.agents ?? [])
-      .filter(busy)
-      .sort(
-        (a, c) =>
-          Number(c.is_lead ?? false) - Number(a.is_lead ?? false) ||
-          CREW_RANK[dotMood(a) ?? a.mood] - CREW_RANK[dotMood(c) ?? c.mood],
-      )
+    const finished = finishedSlugs(state);
+    const dots = byNeed(state?.agents ?? [], finished)
+      .flatMap((a) => {
+        const mood = dotMood(a, finished);
+        return mood ? [{ agent: a, mood }] : [];
+      })
       .slice(0, dotsThatFit(geometry.notchWidth));
     return (
       <div
@@ -188,8 +174,8 @@ export function NotchStrip({
           data-testid="notch-dots"
           style={{ height: geometry.band }}
         >
-          {dots.map((a) => (
-            <StateDot key={a.slug} agent={a} />
+          {dots.map(({ agent, mood }) => (
+            <StateDot key={agent.slug} agent={agent} mood={mood} />
           ))}
         </span>
       </div>

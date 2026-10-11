@@ -98,8 +98,7 @@ function renderWithRuntimes() {
 
 describe("<BotList> session rows carry the model badge", () => {
   it("labels a session's avatar with the model and tool it runs on", () => {
-    const { getByTestId } = renderWithRuntimes();
-    const group = getByTestId("sidebar-sessions-group");
+    const { container: group } = renderWithRuntimes();
 
     const codexRow = group.querySelector('button[data-bot-slug="cx-9c8d7b6a"]');
     expect(

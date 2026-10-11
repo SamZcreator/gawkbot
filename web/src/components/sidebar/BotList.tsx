@@ -146,7 +146,10 @@ function SidebarBotRow({
           ) : null}
         </span>
         <div className="sidebar-bot-wrap">
-          <span className="sidebar-bot-name">{displayName}</span>
+          <span className="sidebar-bot-title">
+            <span className="sidebar-bot-name">{displayName}</span>
+            {isSession ? <SessionMark agent={agent} /> : null}
+          </span>
           {project ? (
             <span
               className="sidebar-bot-task"
@@ -248,6 +251,31 @@ function SidebarBotRow({
   );
 }
 
+const SESSION_TOOL: Record<string, string> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+};
+
+/** A terminal mark: this bot is a session found on this Mac. */
+function SessionMark({ agent }: { agent: OfficeMember }) {
+  const tool = agent.session?.tool ?? "";
+  const what = `${SESSION_TOOL[tool] ?? "Terminal"} session on this Mac`;
+  return (
+    <span
+      className="sidebar-session-mark"
+      role="img"
+      aria-label={what}
+      title={what}
+      data-testid={`session-mark-${agent.slug}`}
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+        <path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3.5" />
+      </svg>
+    </span>
+  );
+}
+
 export function BotList() {
   const { data: members = [] } = useOfficeMembers();
   const route = useCurrentRoute();
@@ -259,14 +287,9 @@ export function BotList() {
   const { showNudge } = useFirstRunNudge();
   const isReconnecting = useAppStore((s) => s.isReconnecting);
 
-  const roster = members.filter((m) => m.slug && m.slug !== "human");
-  // Terminal sessions are members too, but they are not the office's bots:
-  // they get their own group below and are never mixed into the org chart.
-  const agents = useMemo(
-    () => roster.filter((m) => !isSessionMember(m)),
-    [roster],
-  );
-  const sessions = useMemo(() => roster.filter(isSessionMember), [roster]);
+  // Terminal sessions are bots like any other: listed with the office's
+  // own, told apart only by the terminal mark on their row.
+  const agents = members.filter((m) => m.slug && m.slug !== "human");
   // v3 MVP — split CEO out of the flat bot list so the sidebar can
   // render it as the orchestrator with specialists listed beneath. The
   // CEO is always rendered first (even if missing — we render a slot so
@@ -297,7 +320,7 @@ export function BotList() {
     <BotEventTickProvider>
       <div className="sidebar-scroll-wrap is-bots">
         <div className="sidebar-agents" ref={overflowRef}>
-          {orderedBots.length === 0 && sessions.length === 0 ? (
+          {orderedBots.length === 0 ? (
             <div
               style={{
                 fontSize: 11,
@@ -346,26 +369,6 @@ export function BotList() {
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : null}
-              {sessions.length > 0 ? (
-                <div
-                  className="sidebar-bot-group sidebar-bot-group--sessions"
-                  data-testid="sidebar-sessions-group"
-                >
-                  <div className="sidebar-bot-rank-label">
-                    Sessions on this Mac
-                  </div>
-                  {sessions.map((agent) => (
-                    <SidebarBotRow
-                      key={agent.slug}
-                      agent={agent}
-                      isDMActive={activeBotSlug === agent.slug}
-                      isFirst={false}
-                      showNudge={false}
-                      onSelect={handleSelect}
-                    />
-                  ))}
                 </div>
               ) : null}
             </>

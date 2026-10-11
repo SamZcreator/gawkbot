@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ import { NotchBot } from "./NotchBot";
 import { agentsSummary } from "./NotchPanel";
 import { DOT_BAND, dotsThatFit, stripShapeFor } from "./NotchStrip";
 import { NotchView, type NotchViewProps } from "./NotchView";
+import { byNeed } from "./order";
 import type { NotchState } from "./types";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -42,6 +43,7 @@ function notchProps(overrides: Partial<NotchViewProps> = {}): NotchViewProps {
     onOpenFull: vi.fn(),
     agentsOpen: false,
     onAgentsOpen: vi.fn(),
+    onFinishedDone: vi.fn(),
     ...overrides,
   };
 }
@@ -66,35 +68,60 @@ describe("collapsed notch", () => {
     expect(shell.style.height).toBe("32px");
   });
 
-  it("shows agents at work as a centred row of dots under the notch", () => {
+  it("shows every state as a centred row of dots: red, green, orange, latest first", () => {
+    const at = (min: number) =>
+      new Date(Date.now() - min * 60_000).toISOString();
     const state: NotchState = {
       ...QUIET_OFFICE,
       attention: [],
+      finished: [
+        { id: "finished:c@1", kind: "finished", from: "c", question: "done" },
+        {
+          id: "finished:cc-1@1",
+          kind: "finished",
+          from: "cc-1",
+          question: "ok",
+        },
+      ],
       agents: [
-        { slug: "a", name: "A", mood: "working" },
-        { slug: "b", name: "B", mood: "error" },
-        { slug: "cos", name: "Chief of Staff", mood: "working", is_lead: true },
-        { slug: "c", name: "C", mood: "done" },
+        { slug: "a", name: "A", mood: "working", updated_at: at(9) },
+        { slug: "b", name: "B", mood: "error", updated_at: at(5) },
+        {
+          slug: "cos",
+          name: "Chief of Staff",
+          mood: "working",
+          is_lead: true,
+          updated_at: at(1),
+        },
+        {
+          slug: "c",
+          name: "C",
+          mood: "idle",
+          state: "your_turn",
+          updated_at: at(8),
+        },
+        { slug: "q", name: "Q", mood: "needs_you", updated_at: at(2) },
         { slug: "e", name: "E", mood: "idle" },
-        // A terminal session waiting on the human has finished its turn.
+        // Marked done: its turn is over and nobody is waiting, so no dot.
+        {
+          slug: "d",
+          name: "D",
+          mood: "idle",
+          state: "your_turn",
+          updated_at: at(1),
+        },
         {
           slug: "cc-1",
           name: "S",
           mood: "idle",
           kind: "session",
           state: "your_turn",
-        },
-        // A quiet one has not said it is done, so it gets no dot.
-        {
-          slug: "cc-2",
-          name: "Q",
-          mood: "idle",
-          kind: "session",
-          state: "quiet",
+          updated_at: at(3),
         },
       ],
     };
-    const shape = stripShapeFor(MACBOOK_NOTCH, 0, state.agents);
+    const finished = new Set(["c", "cc-1"]);
+    const shape = stripShapeFor(MACBOOK_NOTCH, finished, state.agents);
     expect(shape).toEqual({ earWidth: 0, band: DOT_BAND });
     renderNotchWith({
       geometry: { ...MACBOOK_NOTCH, ...shape },
@@ -106,26 +133,61 @@ describe("collapsed notch", () => {
     expect(shell.style.width).toBe("186px");
     expect(shell.style.height).toBe(`${32 + DOT_BAND}px`);
     expect(document.querySelector(".notch-strip .notch-bot")).toBeNull();
-    // The lead first, then a snag, the finished ones, then work; the idle
-    // and quiet ones are not there.
     const row = Array.from(
       screen.getByTestId("notch-dots").querySelectorAll("[data-mood]"),
     );
     expect(row.map((el) => el.getAttribute("aria-label"))).toEqual([
-      "Chief of Staff: working",
+      "Q: needs your answer",
       "B: stuck",
-      "C: finished",
-      "S: finished",
+      "S: finished, your turn",
+      "C: finished, your turn",
+      "Chief of Staff: working",
       "A: working",
     ]);
-    // Every one a dot in its colour, never a spinner.
     expect(row.map((el) => el.className)).toEqual([
-      "ndot ndot-working",
+      "ndot ndot-needs_you",
       "ndot ndot-error",
       "ndot ndot-done",
       "ndot ndot-done",
       "ndot ndot-working",
+      "ndot ndot-working",
     ]);
+  });
+
+  it("draws a question red, stuck as a red ring, a finished turn green", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/notch/notch.css"),
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.ndot-needs_you\s*\{\s*background: var\(--mood-error\);/,
+    );
+    expect(css).toMatch(
+      /\.ndot-error\s*\{\s*background: transparent;\s*box-shadow: inset 0 0 0 1\.5px var\(--mood-error\);/,
+    );
+    expect(css).toMatch(/\.ndot-done\s*\{\s*background: var\(--mood-done\);/);
+  });
+
+  it("orders the agent list the same way, bots and sessions together", () => {
+    const at = (min: number) =>
+      new Date(Date.now() - min * 60_000).toISOString();
+    const order = byNeed(
+      [
+        { slug: "idle", name: "I", mood: "idle", updated_at: at(0) },
+        { slug: "w-old", name: "W1", mood: "working", updated_at: at(20) },
+        { slug: "w-new", name: "W2", mood: "working", updated_at: at(1) },
+        {
+          slug: "turn",
+          name: "T",
+          mood: "idle",
+          kind: "session",
+          updated_at: at(4),
+        },
+        { slug: "ask", name: "A", mood: "needs_you", updated_at: at(30) },
+      ],
+      new Set(["turn"]),
+    ).map((a) => a.slug);
+    expect(order).toEqual(["ask", "turn", "w-new", "w-old", "idle"]);
   });
 
   it("draws work as a pulsing orange dot, with no spinner left in the notch", () => {
@@ -149,7 +211,7 @@ describe("collapsed notch", () => {
       mood: "working" as const,
     }));
     const state: NotchState = { ...QUIET_OFFICE, attention: [], agents: many };
-    const shape = stripShapeFor(MACBOOK_NOTCH, 0, many);
+    const shape = stripShapeFor(MACBOOK_NOTCH, new Set(), many);
     renderNotchWith({
       geometry: { ...MACBOOK_NOTCH, ...shape },
       state,
@@ -164,19 +226,26 @@ describe("collapsed notch", () => {
   it("sizes the strip to what is going on", () => {
     const idle = [{ slug: "x", name: "X", mood: "idle" as const }];
     const working = [{ slug: "x", name: "X", mood: "working" as const }];
-    expect(stripShapeFor(MACBOOK_NOTCH, 0, idle)).toEqual({
+    const none = new Set<string>();
+    expect(stripShapeFor(MACBOOK_NOTCH, none, idle)).toEqual({
       earWidth: 0,
       band: 0,
     });
-    expect(stripShapeFor(MACBOOK_NOTCH, 0, working)).toEqual({
+    expect(stripShapeFor(MACBOOK_NOTCH, none, working)).toEqual({
       earWidth: 0,
       band: DOT_BAND,
     });
-    expect(stripShapeFor(MACBOOK_NOTCH, 2, idle)).toEqual({
-      earWidth: MACBOOK_NOTCH.earWidth,
-      band: 0,
+    // Something that needs the human is a dot too, never faces beside the notch.
+    const asking = [{ slug: "x", name: "X", mood: "needs_you" as const }];
+    expect(stripShapeFor(MACBOOK_NOTCH, none, asking)).toEqual({
+      earWidth: 0,
+      band: DOT_BAND,
     });
-    expect(stripShapeFor(NO_NOTCH, 0, working)).toEqual({
+    expect(stripShapeFor(MACBOOK_NOTCH, new Set(["x"]), idle)).toEqual({
+      earWidth: 0,
+      band: DOT_BAND,
+    });
+    expect(stripShapeFor(NO_NOTCH, none, working)).toEqual({
       earWidth: NO_NOTCH.earWidth,
       band: 0,
     });
@@ -404,9 +473,19 @@ describe("open notch", () => {
     ).not.toBeNull();
     // It has its own face, like every other agent.
     expect(row.querySelector("svg, canvas")).not.toBeNull();
-    // The two kinds of agent are listed apart, under the one Agents card.
-    expect(screen.getByText(/^gawkbot team · \d+$/)).toBeInTheDocument();
-    expect(screen.getByText("Sessions on this Mac · 1")).toBeInTheDocument();
+    // Bots and sessions share one list; a terminal mark says which is which.
+    expect(screen.queryByText(/^gawkbot team/)).toBeNull();
+    expect(screen.queryByText(/^Sessions on this Mac/)).toBeNull();
+    expect(
+      row.querySelector(
+        '.nsession-mark[aria-label="Claude Code session on this Mac"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      screen
+        .getByTestId("notch-agent-designer")
+        .querySelector(".nsession-mark"),
+    ).toBeNull();
     // Not a member of the office yet: pressing it shows what it last said.
     expect(row.querySelector(".nagent-open")).toBeNull();
     expect(row).not.toHaveTextContent("Which one should I keep?");
@@ -416,6 +495,36 @@ describe("open notch", () => {
     expect(row).toHaveTextContent("Both fixes pass. Which one should I keep?");
     expect(row).toHaveTextContent("/Users/me/shop");
     expect(row).toHaveTextContent("Answer it in its Claude Code window.");
+  });
+
+  it("lists a finished turn under Needs you, to reply to or mark done", async () => {
+    const state: NotchState = {
+      ...BUSY_OFFICE,
+      finished: [
+        {
+          id: "finished:designer@2026-10-11T10:00:00Z",
+          kind: "finished",
+          from: "designer",
+          title: "Your turn",
+          question: "Mockups are in the wiki.",
+        },
+      ],
+    };
+    const props = renderNotch({ expanded: true, state });
+    expect(
+      screen.getByText(`Needs you · ${BUSY_OFFICE.attention.length + 1}`),
+    ).toBeInTheDocument();
+    const card = screen.getByTestId("notch-finished-designer");
+    expect(card).toHaveTextContent("Mockups are in the wiki.");
+    expect(card).toHaveTextContent("your turn");
+    await userEvent.click(within(card).getByRole("button", { name: "Reply" }));
+    expect(props.onReply).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "message", slug: "designer" }),
+    );
+    await userEvent.click(within(card).getByRole("button", { name: "Done" }));
+    expect(props.onFinishedDone).toHaveBeenCalledWith(
+      "finished:designer@2026-10-11T10:00:00Z",
+    );
   });
 
   it("does not send the human to a window that is closed", async () => {

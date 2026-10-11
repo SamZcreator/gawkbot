@@ -10,6 +10,7 @@ import { RuntimeLogo } from "../components/onboarding/RuntimeLogos";
 import { SHORTCUTS } from "./keys";
 import { NotchBot } from "./NotchBot";
 import { NotchHero } from "./NotchHero";
+import { byNeed, finishedSlugs } from "./order";
 import type {
   NotchAgent,
   NotchAttention,
@@ -53,6 +54,8 @@ export interface PanelProps {
   onToggleSound: () => void;
   /** Leave the widget for the full app; closing that window comes back here. */
   onOpenFull: () => void;
+  /** Marks a finished turn done without replying to it. */
+  onFinishedDone: (id: string) => void;
   /** The agent list is folded away until asked for. */
   agentsOpen: boolean;
   onAgentsOpen: (open: boolean) => void;
@@ -119,12 +122,6 @@ function Tag({ tag }: { tag: AgentTag }) {
 
 /** How many faces the folded agent list shows. */
 const TEAM_FACES = 5;
-
-/** The two kinds of agent, listed apart but treated alike. */
-const AGENT_GROUPS = [
-  { label: "gawkbot team", sessions: false },
-  { label: "Sessions on this Mac", sessions: true },
-] as const;
 
 /** The DM a row writes into; null for a session that has no DM yet. */
 function agentChannel(agent: NotchAgent, state: NotchState): string | null {
@@ -271,6 +268,97 @@ function Question({
 }
 
 /**
+ * A turn that ended and is waiting on the human: what it last said, and a
+ * reply straight to it. Done hides this turn; the next one shows again.
+ */
+function Finished({
+  item,
+  agent,
+  channel,
+  onReply,
+  onDone,
+  onOpen,
+}: {
+  item: NotchAttention;
+  agent: NotchAgent | undefined;
+  channel: string | null;
+  onReply: PanelProps["onReply"];
+  onDone: PanelProps["onFinishedDone"];
+  onOpen: PanelProps["onOpen"];
+}) {
+  const name = agent?.name ?? item.from_name ?? item.from;
+  return (
+    <article
+      aria-label={`${name} finished`}
+      className="nq is-finished"
+      data-testid={`notch-finished-${item.from}`}
+    >
+      <NotchBot
+        slug={item.from || "someone"}
+        avatar={agent?.avatar}
+        mood="done"
+        size={28}
+        bare={true}
+        label=""
+      />
+      <div className="nq-body">
+        <div className="nq-from">
+          <b>{name}</b>
+          {agent?.kind === "session" ? <SessionMark agent={agent} /> : null}
+          <span className="ntag is-turn">your turn</span>
+        </div>
+        <div className="nq-text">{item.question}</div>
+        <div className="nq-actions">
+          {channel ? (
+            <button
+              type="button"
+              className="nbtn is-primary"
+              onClick={() =>
+                onReply({ kind: "message", slug: item.from, name, channel })
+              }
+            >
+              Reply
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="nbtn is-quiet"
+            onClick={() => onDone(item.id)}
+          >
+            Done
+          </button>
+          {agent?.kind === "session" ? null : (
+            <button
+              type="button"
+              className="nbtn is-quiet"
+              onClick={() => onOpen(`/agents/${encodeURIComponent(item.from)}`)}
+            >
+              Open
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+/**
+ * A session found on this Mac, not a gawkbot bot: a terminal mark beside
+ * the name, the one thing that tells them apart in a shared list.
+ */
+function SessionMark({ agent }: { agent: NotchAgent }) {
+  const what = `${agent.tool_name || "Terminal"} session on this Mac`;
+  return (
+    <span className="nsession-mark" role="img" aria-label={what} title={what}>
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+        <path d="M4.5 6.5 6.5 8l-2 1.5M8 10h3.5" />
+      </svg>
+    </span>
+  );
+}
+
+/**
  * The opened card's background: which project this is, what the asker was
  * working on, its own account of the decision in full, and the last few
  * lines of the conversation that led here.
@@ -410,6 +498,7 @@ function AgentRow({ agent, phase, channel, onReply, onOpen }: AgentRowProps) {
           label=""
         />
         <span className="nagent-name">{agent.name}</span>
+        {session ? <SessionMark agent={agent} /> : null}
         <span className="nagent-detail">
           {detail}
           {when ? ` · ${when}` : ""}
@@ -572,8 +661,15 @@ export function NotchPanel(props: PanelProps) {
   const leadName = state.lead_name || "Chief of Staff";
   const leadSlug = state.lead ?? "cos";
   const leadAgent = state.agents.find((a) => a.is_lead);
-  // The agents in the list: everyone but the lead, which has its own box.
-  const listed = state.agents.filter((a) => !a.is_lead);
+  // The agents in the list: everyone but the lead, which has its own box,
+  // office bots and sessions together in one order (order.ts).
+  const finished = finishedSlugs(state);
+  const listed = byNeed(
+    state.agents.filter((a) => !a.is_lead),
+    finished,
+  );
+  const turns = state.finished ?? [];
+  const needsYou = state.attention.length + turns.length;
   const composingToLead =
     composer?.target.kind === "message" &&
     composer.target.channel === state.lead_dm;
@@ -630,9 +726,9 @@ export function NotchPanel(props: PanelProps) {
       </NotchHero>
 
       <div className="nscroll">
-        {state.attention.length > 0 ? (
+        {needsYou > 0 ? (
           <section aria-label="Needs you">
-            <h3 className="nsection">Needs you · {state.attention.length}</h3>
+            <h3 className="nsection">Needs you · {needsYou}</h3>
             {state.attention.map((item) => (
               <Question
                 key={item.id}
@@ -646,6 +742,20 @@ export function NotchPanel(props: PanelProps) {
                 onOpen={props.onOpen}
               />
             ))}
+            {turns.map((item) => {
+              const agent = bySlug.get(item.from);
+              return (
+                <Finished
+                  key={item.id}
+                  item={item}
+                  agent={agent}
+                  channel={agent ? agentChannel(agent, state) : null}
+                  onReply={props.onReply}
+                  onDone={props.onFinishedDone}
+                  onOpen={props.onOpen}
+                />
+              );
+            })}
           </section>
         ) : null}
 
@@ -682,33 +792,20 @@ export function NotchPanel(props: PanelProps) {
               ›
             </span>
           </button>
-          {agentsOpen
-            ? AGENT_GROUPS.map((group) => {
-                const members = listed.filter(
-                  (a) => (a.kind === "session") === group.sessions,
-                );
-                if (members.length === 0) return null;
-                return (
-                  <div key={group.label} className="ngroup">
-                    <h3 className="nsection">
-                      {group.label} · {members.length}
-                    </h3>
-                    <div className="nagents">
-                      {members.map((a, i) => (
-                        <AgentRow
-                          key={a.slug}
-                          agent={a}
-                          phase={i}
-                          channel={agentChannel(a, state)}
-                          onReply={props.onReply}
-                          onOpen={props.onOpen}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-            : null}
+          {agentsOpen ? (
+            <div className="nagents">
+              {listed.map((a, i) => (
+                <AgentRow
+                  key={a.slug}
+                  agent={a}
+                  phase={i}
+                  channel={agentChannel(a, state)}
+                  onReply={props.onReply}
+                  onOpen={props.onOpen}
+                />
+              ))}
+            </div>
+          ) : null}
         </section>
       </div>
 
