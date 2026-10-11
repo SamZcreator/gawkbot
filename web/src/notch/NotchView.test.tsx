@@ -10,6 +10,8 @@ import { agentsSummary } from "./NotchPanel";
 import { DOT_BAND, dotsThatFit, stripShapeFor } from "./NotchStrip";
 import { NotchView, type NotchViewProps } from "./NotchView";
 import type { NotchState } from "./types";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 function notchProps(overrides: Partial<NotchViewProps> = {}): NotchViewProps {
   return {
@@ -74,6 +76,22 @@ describe("collapsed notch", () => {
         { slug: "cos", name: "Chief of Staff", mood: "working", is_lead: true },
         { slug: "c", name: "C", mood: "done" },
         { slug: "e", name: "E", mood: "idle" },
+        // A terminal session waiting on the human has finished its turn.
+        {
+          slug: "cc-1",
+          name: "S",
+          mood: "idle",
+          kind: "session",
+          state: "your_turn",
+        },
+        // A quiet one has not said it is done, so it gets no dot.
+        {
+          slug: "cc-2",
+          name: "Q",
+          mood: "idle",
+          kind: "session",
+          state: "quiet",
+        },
       ],
     };
     const shape = stripShapeFor(MACBOOK_NOTCH, 0, state.agents);
@@ -88,17 +106,40 @@ describe("collapsed notch", () => {
     expect(shell.style.width).toBe("186px");
     expect(shell.style.height).toBe(`${32 + DOT_BAND}px`);
     expect(document.querySelector(".notch-strip .notch-bot")).toBeNull();
-    // The lead first, then a snag, a finish, then work; the idle one is not
-    // there.
-    const dots = Array.from(
+    // The lead first, then a snag, the finished ones, then work; the idle
+    // and quiet ones are not there.
+    const row = Array.from(
       screen.getByTestId("notch-dots").querySelectorAll("[data-mood]"),
-    ).map((el) => el.getAttribute("aria-label"));
-    expect(dots).toEqual([
+    );
+    expect(row.map((el) => el.getAttribute("aria-label"))).toEqual([
       "Chief of Staff: working",
-      "B: error",
-      "C: done",
+      "B: stuck",
+      "C: finished",
+      "S: finished",
       "A: working",
     ]);
+    // Every one a dot in its colour, never a spinner.
+    expect(row.map((el) => el.className)).toEqual([
+      "ndot ndot-working",
+      "ndot ndot-error",
+      "ndot ndot-done",
+      "ndot ndot-done",
+      "ndot ndot-working",
+    ]);
+  });
+
+  it("draws work as a pulsing orange dot, with no spinner left in the notch", () => {
+    const css = readFileSync(
+      resolve(process.cwd(), "src/notch/notch.css"),
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.ndot-working\s*\{\s*background: var\(--dot-working\);/,
+    );
+    expect(css).toMatch(/--dot-working: #ff9f0a;/);
+    expect(css).toMatch(/\.ndot-working\s*\{\s*animation: ndot-pulse/);
+    expect(css).not.toMatch(/rotate\(360deg\)/);
+    expect(css).not.toMatch(/ndot-spin/);
   });
 
   it("fits as many dots as the notch is wide", () => {

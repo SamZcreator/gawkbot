@@ -27,6 +27,7 @@ import {
 } from "../../api/tasks";
 import { useDefaultHarness } from "../../hooks/useConfig";
 import { hasAvatarChoice, normalizeAvatarColor } from "../../lib/blobAvatar";
+import { botDot, botDotClass } from "../../lib/botDot";
 import type { HarnessKind } from "../../lib/harness";
 import { resolveHarness } from "../../lib/harness";
 import { humanizeActivity } from "../../lib/humanizeActivity";
@@ -1033,7 +1034,7 @@ export function BotProfilePanel({
     refetchInterval: 30_000,
   });
 
-  const statusClass = agent.status === "active" ? "active pulse" : "lurking";
+  const statusClass = botDotClass(botDot(agent));
 
   return (
     <div className="bot-panel bot-profile-panel">

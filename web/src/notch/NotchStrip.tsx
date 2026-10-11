@@ -48,9 +48,22 @@ const COMPACT_EAR = 60;
 /** The band of dots under the notch, at rest. */
 export const DOT_BAND = 10;
 
-/** A mood that shows as a dot at rest: someone is doing something. */
+/**
+ * What an agent's dot says: working, stuck, or finished. A terminal session
+ * waiting on the human has finished its turn, so it reads as done. Anything
+ * else has no dot.
+ */
+export function dotMood(a: NotchAgent): "working" | "error" | "done" | null {
+  if (a.mood === "working" || a.mood === "error" || a.mood === "done") {
+    return a.mood;
+  }
+  if (a.kind === "session" && a.state === "your_turn") return "done";
+  return null;
+}
+
+/** An agent that shows as a dot at rest. */
 function busy(a: NotchAgent): boolean {
-  return a.mood === "working" || a.mood === "error" || a.mood === "done";
+  return dotMood(a) !== null;
 }
 
 /** What the strip looks like now, and so how big a window it needs. */
@@ -82,14 +95,17 @@ export function dotsThatFit(notchWidth: number): number {
   return Math.max(1, Math.floor((notchWidth - 12) / 10));
 }
 
-/** One state at a glance: a spinner for work, a dot for anything else. */
+const DOT_WORDS = { working: "working", error: "stuck", done: "finished" };
+
+/** One state at a glance, always a dot: orange working, red stuck, green done. */
 function StateDot({ agent }: { agent: NotchAgent }) {
+  const mood = dotMood(agent) ?? "done";
   return (
     <span
-      className={`ndot ndot-${agent.mood}`}
+      className={`ndot ndot-${mood}`}
       role="img"
-      aria-label={`${agent.name}: ${agent.mood.replace("_", " ")}`}
-      data-mood={agent.mood}
+      aria-label={`${agent.name}: ${DOT_WORDS[mood]}`}
+      data-mood={mood}
     />
   );
 }
@@ -157,7 +173,7 @@ export function NotchStrip({
       .sort(
         (a, c) =>
           Number(c.is_lead ?? false) - Number(a.is_lead ?? false) ||
-          CREW_RANK[a.mood] - CREW_RANK[c.mood],
+          CREW_RANK[dotMood(a) ?? a.mood] - CREW_RANK[dotMood(c) ?? c.mood],
       )
       .slice(0, dotsThatFit(geometry.notchWidth));
     return (

@@ -14,7 +14,7 @@ struct RequestCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange)
+                Image(systemName: "questionmark.circle.fill").foregroundStyle(Mood.needsYou.tint)
                 Text("\(botName) asks").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
                 Text((request.kind ?? "request").uppercased()).font(.caption2.weight(.bold)).foregroundStyle(.secondary)
@@ -45,7 +45,7 @@ struct RequestCardView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.softCard))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.orange.opacity(0.35), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Mood.needsYou.tint.opacity(0.35), lineWidth: 1))
         .sheet(item: $textFor) { option in
             NavigationStack {
                 Form {

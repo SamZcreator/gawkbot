@@ -1,3 +1,4 @@
+import { botDot, botDotClass } from "../../lib/botDot";
 /**
  * BotSubspace — tabbed per-bot view with 9 tabs:
  *   Chat · Computer · Tasks · Skills · Knowledge · Data · Policies · Live Stream · Config
@@ -134,8 +135,15 @@ interface ShellHeaderProps {
   onTeachWorkflow: () => void;
 }
 
+const DOT_TITLE = {
+  working: "Working",
+  finished: "Finished its turn",
+  stuck: "Stuck",
+  idle: "Idle",
+} as const;
+
 function ShellHeader({ agent, onTeachWorkflow }: ShellHeaderProps) {
-  const statusClass = agent.status === "active" ? "active pulse" : "lurking";
+  const statusClass = botDotClass(botDot(agent));
 
   return (
     <div className="bot-subspace-header">
@@ -151,7 +159,7 @@ function ShellHeader({ agent, onTeachWorkflow }: ShellHeaderProps) {
             <EditableName agent={agent} />
             <span
               className={`status-dot ${statusClass}`}
-              title={agent.status === "active" ? "Active" : "Idle"}
+              title={DOT_TITLE[botDot(agent)]}
               aria-hidden="true"
             />
           </div>

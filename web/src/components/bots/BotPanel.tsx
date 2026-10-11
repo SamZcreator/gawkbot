@@ -7,6 +7,7 @@ import { post } from "../../api/client";
 import { listBotLogTasks, type TaskLogSummary } from "../../api/tasks";
 import { useBotStream } from "../../hooks/useBotStream";
 import { useChannelMembers, useOfficeMembers } from "../../hooks/useMembers";
+import { botDot, botDotClass } from "../../lib/botDot";
 import { humanizeActivity } from "../../lib/humanizeActivity";
 import { router } from "../../lib/router";
 import {
@@ -314,7 +315,7 @@ function BotPanelView({ agent, onClose }: BotPanelViewProps) {
     });
   }
 
-  const statusClass = agent.status === "active" ? "active pulse" : "lurking";
+  const statusClass = botDotClass(botDot(agent));
 
   return (
     <div className="bot-panel">

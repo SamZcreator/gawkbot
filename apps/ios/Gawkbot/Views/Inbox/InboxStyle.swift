@@ -39,10 +39,13 @@ struct TagChip: View {
 }
 
 extension Mood {
+    /// Orange while it works, green once it has finished, red when stuck,
+    /// the same as the notch and the full app. Asking is yellow, so it never
+    /// reads as working.
     var tint: Color {
         switch self {
-        case .needsYou: return .orange
-        case .working: return .blue
+        case .needsYou: return .yellow
+        case .working: return .orange
         case .idle: return .gray
         case .error: return .red
         case .done: return .green
@@ -71,5 +74,7 @@ struct MoodPill: View {
             .padding(.vertical, 4)
             .foregroundStyle(mood.tint)
             .background(mood.tint.opacity(0.14), in: Capsule())
+            // Work pulses; nothing spins.
+            .symbolEffect(.pulse, isActive: mood == .working)
     }
 }

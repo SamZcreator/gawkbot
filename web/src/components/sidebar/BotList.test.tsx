@@ -538,16 +538,20 @@ describe("<BotList> presence and activity", () => {
     }
   });
 
-  it("leaves the row status dot unanimated so the eyes carry the motion", () => {
+  it("dots a bot orange while it works, red when stuck, never green", () => {
     setMembers([
       { slug: "tess", name: "Tess", role: "engineer", status: "active" },
+      { slug: "sam", name: "Sam", role: "engineer", status: "error" },
+      { slug: "ida", name: "Ida", role: "engineer", status: "idle" },
     ]);
 
-    const { container } = renderList();
-    const dot = container.querySelector(".status-dot");
-    expect(dot?.className).toContain("active");
-    // A pulsing dot beside animating eyes is two clocks for one fact.
-    expect(dot?.className).not.toContain("pulse");
+    const { getByTestId, queryByTestId } = renderList();
+    expect(getByTestId("status-dot-tess").className).toBe("status-dot working");
+    expect(getByTestId("status-dot-sam").className).toBe("status-dot stuck");
+    expect(getByTestId("status-dot-ida").className).toBe("status-dot lurking");
+    // Green is for a finished turn only, so a working bot carries no green.
+    expect(getByTestId("working-badge-tess")).toBeTruthy();
+    expect(queryByTestId("finished-badge-tess")).toBeNull();
   });
 });
 
@@ -716,6 +720,25 @@ describe("<BotList> sessions on this Mac", () => {
       closed: "Closed",
       stale: "Closed",
     });
+
+    // Green when it has finished its turn and waits on you, orange while it
+    // works, grey otherwise. A closed session is never shown as working.
+    const dots = Object.fromEntries(
+      ["cc-working", "cc-turn", "cc-quiet", "cc-closed", "cc-stale"].map(
+        (slug) => [slug, getByTestId(`status-dot-${slug}`).className],
+      ),
+    );
+    expect(dots).toEqual({
+      "cc-working": "status-dot working",
+      "cc-turn": "status-dot finished",
+      "cc-quiet": "status-dot lurking",
+      "cc-closed": "status-dot lurking",
+      "cc-stale": "status-dot lurking",
+    });
+    expect(getByTestId("finished-badge-cc-turn")).toBeTruthy();
+    expect(
+      container.querySelector('[data-testid="working-badge-cc-stale"]'),
+    ).toBeNull();
 
     // The dictionary is real and not empty, an office bot does show one of
     // its lines, and no session row shows any of them.

@@ -5,6 +5,7 @@ import { useBotEventPeek } from "../../hooks/useBotEventPeek";
 import { useFirstRunNudge } from "../../hooks/useFirstRunNudge";
 import { useOfficeMembers } from "../../hooks/useMembers";
 import { useOverflow } from "../../hooks/useOverflow";
+import { botDot, botDotClass } from "../../lib/botDot";
 import { router } from "../../lib/router";
 import {
   isSessionMember,
@@ -18,28 +19,17 @@ import { PixelAvatar } from "../ui/PixelAvatar";
 import { BotEventPeek } from "./BotEventPeek";
 import { BotEventPill, BotEventTickProvider } from "./BotEventPill";
 
-function classifyActivity(member: OfficeMember | undefined) {
-  if (!member)
-    return { state: "lurking", label: "lurking", dotClass: "lurking" };
-  const status = (member.status || "").toLowerCase();
-  const activity = (member.task || "").toLowerCase();
-
+/** The word in a row's tooltip for what the bot is up to. */
+function activityLabel(member: OfficeMember | undefined): string {
+  if ((member?.status || "").toLowerCase() !== "active") return "lurking";
+  const activity = (member?.task || "").toLowerCase();
   if (
-    status === "active" &&
     /tool|code|write|edit|commit|build|deploy|ship|push|run|test/.test(activity)
   )
-    return { state: "shipping", label: "shipping", dotClass: "shipping" };
-  if (
-    status === "active" &&
-    /think|plan|queue|review|sync|debug|trace|investigat/.test(activity)
-  )
-    return { state: "plotting", label: "plotting", dotClass: "plotting" };
-  // No `pulse` here on purpose. The bot's EYES now animate while it works,
-  // and a pulsing dot beside animating eyes is two clocks for one fact. The
-  // dot stays categorical and still; the eyes carry the motion.
-  if (status === "active")
-    return { state: "talking", label: "talking", dotClass: "active" };
-  return { state: "lurking", label: "lurking", dotClass: "lurking" };
+    return "shipping";
+  if (/think|plan|queue|review|sync|debug|trace|investigat/.test(activity))
+    return "plotting";
+  return "talking";
 }
 
 /**
@@ -74,8 +64,8 @@ function SidebarBotRow({
 }: SidebarBotRowProps) {
   const peek = useBotEventPeek(agent.slug);
   const anchorRef = useRef<HTMLDivElement>(null);
-  const ac = classifyActivity(agent);
   const working = isWorking(agent);
+  const dot = botDot(agent);
   // "On its computer": the desktop is up AND the bot is mid-turn. Both
   // facts are required so an idle bot with a sleeping VM shows nothing.
   const computerReady = useAppStore(
@@ -102,7 +92,7 @@ function SidebarBotRow({
       <button
         type="button"
         className={`sidebar-agent${isDMActive ? " active" : ""}`}
-        title={`${displayName} — ${ac.label}`}
+        title={`${displayName} — ${activityLabel(agent)}`}
         onClick={() => {
           // Tier 3 escalation: "quick activation always wins" per the plan.
           // Close any open Tier 2 peek so the workspace is the only surface
@@ -123,23 +113,28 @@ function SidebarBotRow({
           {/* Top-right of the avatar carries exactly ONE dot, and which one
               depends on the more important fact being true.
 
-              Green means WORKING: the bot is processing right now. That is
+              Pulsing orange means WORKING: the bot is processing now. That is
               the state a human actually wants to spot in a rail of a dozen
               teammates, so it gets the loud treatment and the position the
               eye lands on.
 
               The transport-presence dot is the fallback, shown only when the
               bot is reachable but idle. It is deliberately smaller and
-              muted rather than green — two green dots on one row would put
-              the old ambiguity straight back.
+              muted, so being reachable never reads as working.
 
               Both are decorative: the peek card states presence textually
               ("Online" / "Last seen Xm ago") and the row's status dot carries
               activity, so announcing either here would just repeat it. */}
-          {working ? (
+          {dot === "working" ? (
             <span
               className="working-badge"
               data-testid={`working-badge-${agent.slug}`}
+              aria-hidden="true"
+            />
+          ) : dot === "finished" ? (
+            <span
+              className="finished-badge"
+              data-testid={`finished-badge-${agent.slug}`}
               aria-hidden="true"
             />
           ) : agent.online ? (
@@ -176,7 +171,10 @@ function SidebarBotRow({
             />
           )}
         </div>
-        <span className={`status-dot ${ac.dotClass}`} />
+        <span
+          className={`status-dot ${botDotClass(dot)}`}
+          data-testid={`status-dot-${agent.slug}`}
+        />
       </button>
       {onComputer ? (
         <span

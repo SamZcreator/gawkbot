@@ -1856,7 +1856,9 @@ body {
 /* Top-right of the agent avatar. Exactly one of these renders at a time, and
    they are deliberately NOT the same weight.
 
-   .working-badge  the agent is processing right now. Green, full size.
+   .working-badge  the agent is processing right now. Orange, pulsing, full
+                   size.
+   .finished-badge it finished its turn and waits on you. Green.
    .online-badge   the adapter is merely reachable. Smaller and muted.
 
    These used to be one badge: `online` rendered in green, which meant the
@@ -1865,6 +1867,7 @@ body {
    ambiguity, so it is a neutral outline instead. The peek card still states
    presence textually via "Online" / "Last seen Xm ago". */
 .working-badge,
+.finished-badge,
 .online-badge {
   position: absolute;
   top: -2px;
@@ -1873,7 +1876,21 @@ body {
   pointer-events: none;
 }
 
+/* Working is orange and pulsing everywhere a bot shows, the notch included. */
 .working-badge {
+  width: 7px;
+  height: 7px;
+  background: var(--warning-400, #ff9f0a);
+  box-shadow: 0 0 0 1.5px var(--bg-card, #fff);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .working-badge {
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+}
+
+/* Finished its turn and waiting on you: green, still. */
+.finished-badge {
   width: 7px;
   height: 7px;
   background: var(--green, #03a04c);
@@ -1900,6 +1917,22 @@ body {
 }
 .status-dot.pulse {
   animation: pulse-dot 2s ease-in-out infinite;
+}
+/* A bot's state (lib/botDot.ts): orange and pulsing while it works, green
+   once it has finished its turn, red when it is stuck. Never a spinner. */
+.status-dot.working {
+  background: var(--warning-400, #ff9f0a);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .status-dot.working {
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+}
+.status-dot.finished {
+  background: var(--green);
+}
+.status-dot.stuck {
+  background: var(--red);
 }
 .status-dot.shipping {
   background: var(--blue);

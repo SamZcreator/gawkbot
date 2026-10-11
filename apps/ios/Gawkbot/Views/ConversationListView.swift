@@ -105,7 +105,7 @@ struct ConversationRow: View {
                 if !preview.isEmpty {
                     HStack(spacing: 4) {
                         if pendingAsk {
-                            Image(systemName: "questionmark.circle.fill").foregroundStyle(.orange).font(.footnote)
+                            Image(systemName: "questionmark.circle.fill").foregroundStyle(Mood.needsYou.tint).font(.footnote)
                         }
                         Text(preview)
                             .font(.subheadline)
@@ -170,8 +170,8 @@ struct ConversationRow: View {
 }
 
 /// A session's status as a small chip: "Working", "Your turn", "Quiet", or
-/// "Closed". Colour only where it means something: working, and waiting on
-/// the person.
+/// "Closed". Colour only where it means something: orange while it works,
+/// green once it has finished its turn and waits on the person.
 struct SessionStatusChip: View {
     let status: SessionStatus
 
@@ -188,7 +188,7 @@ struct SessionStatusChip: View {
     private var tint: Color {
         switch status {
         case .working: return Mood.working.tint
-        case .yourTurn: return Mood.needsYou.tint
+        case .yourTurn: return Mood.done.tint
         case .quiet, .closed: return .secondary
         }
     }

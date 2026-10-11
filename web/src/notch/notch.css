@@ -28,6 +28,8 @@
   --mood-needs-you: #ffd60a;
   --mood-error: #ff453a;
   --mood-done: #30d158;
+  /* The dot for work under the notch: orange, pulsing. */
+  --dot-working: #ff9f0a;
   --notch-radius: 22px;
   /* How far each agent in the gang tucks behind the one before it. */
   --nb-overlap: -7px;
@@ -156,8 +158,9 @@ kbd {
   padding: 0 12px;
   box-sizing: border-box;
 }
-/* At rest: the notch, and a centred row under it, a dot or a spinner per
-   agent in its mood's colour. */
+/* At rest: the notch, and a centred row under it, one dot per agent: green
+   when it has finished, red when it is stuck, orange and pulsing while it
+   works. Never a spinner. */
 .notch-strip.is-dots {
   flex-direction: column;
   align-items: stretch;
@@ -188,31 +191,18 @@ kbd {
 .ndot-needs_you {
   background: var(--mood-needs-you);
 }
-/* Work is a spinner: a ring with a gap, turning. */
 .ndot-working {
-  width: 7px;
-  height: 7px;
-  box-sizing: border-box;
-  background: transparent;
-  border: 1.5px solid var(--mood-working);
-  border-right-color: transparent;
+  background: var(--dot-working);
 }
 @media (prefers-reduced-motion: no-preference) {
   .ndot-working {
-    animation: ndot-spin 0.9s linear infinite;
-  }
-  .ndot-error {
-    animation: ndot-pulse 1.2s ease-in-out infinite;
-  }
-}
-@keyframes ndot-spin {
-  to {
-    transform: rotate(360deg);
+    animation: ndot-pulse 1.4s ease-in-out infinite;
   }
 }
 @keyframes ndot-pulse {
   50% {
     opacity: 0.35;
+    transform: scale(0.7);
   }
 }
 
