@@ -820,3 +820,33 @@ func TestCodexSessionLogMustBeAPlainFile(t *testing.T) {
 		t.Fatalf("sessions = %+v, want only the plain file's", sessions)
 	}
 }
+
+// A turn can end in the log while Claude Code keeps working: a shell it
+// started is still running ("shell"). The window's own status wins, so the
+// session is working, not the person's turn, and nothing is typed into it.
+func TestASessionRunningAShellIsWorkingNotYourTurn(t *testing.T) {
+	home := t.TempDir()
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	for _, id := range []string{"sh", "idle"} {
+		writeLog(t, filepath.Join(home, ".claude", "projects", "-Users-me-"+id, id+".jsonl"), now.Add(-10*time.Minute),
+			`{"type":"user","cwd":"/Users/me/`+id+`","entrypoint":"cli"}`,
+			`{"type":"ai-title","aiTitle":"Session `+id+`"}`,
+			`{"type":"assistant","message":{"stop_reason":"end_turn","content":[{"type":"text","text":"Not yet."}]}}`,
+		)
+	}
+	reg := filepath.Join(home, ".claude", "sessions")
+	writeRegistry(t, reg, "101.json", `{"pid":101,"sessionId":"sh","kind":"interactive","status":"shell"}`)
+	writeRegistry(t, reg, "102.json", `{"pid":102,"sessionId":"idle","kind":"interactive","status":"idle"}`)
+	s := &Scanner{Home: func() (string, error) { return home, nil }, alivePIDs: map[int]bool{101: true, 102: true}}
+	open, _ := s.OpenSessions()
+	if e := open["claude-code:sh"]; !e.Busy || e.TakesInput() {
+		t.Fatalf("shell entry = %+v, want busy and not taking input", e)
+	}
+	state := map[string]string{}
+	for _, sess := range s.Sessions([]Detection{{ID: "claude-code", Name: "Claude Code", Running: []Process{{PID: 101}}}}, now) {
+		state[sess.Title] = sess.State
+	}
+	if state["Session sh"] != SessionWorking || state["Session idle"] != SessionYourTurn {
+		t.Fatalf("states = %v", state)
+	}
+}

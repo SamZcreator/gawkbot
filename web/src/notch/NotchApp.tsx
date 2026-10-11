@@ -9,6 +9,7 @@ import {
   markFinishedSeen,
   NOTCH_QUERY_KEY,
   sendMessage,
+  showSession,
 } from "./api";
 import {
   installNativeReceiver,
@@ -171,20 +172,16 @@ export function NotchApp({
     },
   });
 
-  const send = useMutation({
-    mutationFn: ({ target, text }: { target: ReplyTarget; text: string }) =>
-      target.kind === "answer"
-        ? answerWithText(target.requestId, text)
-        : sendMessage(target.channel, text),
+  // Out to where a terminal session really runs. The notch steps aside so
+  // the window it brings forward is not under it.
+  const showSource = useMutation({
+    mutationFn: (slug: string) => showSession(slug),
     onMutate: () => setError(null),
-    onSuccess: (_d, { target }) => {
-      if (target.kind === "answer") setCheer((n) => n + 1);
-      else play("sent");
-      setComposer(null);
-      refresh();
+    onSuccess: () => {
+      if (inApp) postNative({ type: "collapse" });
     },
     onError: (err) =>
-      setError(err instanceof Error ? err.message : "Could not send that"),
+      setError(err instanceof Error ? err.message : "Could not open it"),
   });
 
   // Done on a finished turn: gone from the list at once, then for good.
@@ -201,6 +198,29 @@ export function NotchApp({
     onError: (err) =>
       setError(err instanceof Error ? err.message : "Could not mark that done"),
     onSettled: refresh,
+  });
+
+  const send = useMutation({
+    mutationFn: ({ target, text }: { target: ReplyTarget; text: string }) =>
+      target.kind === "answer"
+        ? answerWithText(target.requestId, text)
+        : sendMessage(target.channel, text),
+    onMutate: () => setError(null),
+    onSuccess: (_d, { target }) => {
+      if (target.kind === "answer") setCheer((n) => n + 1);
+      else {
+        play("sent");
+        // Replying to a finished turn is what it was waiting for: its card
+        // goes, as Done would take it.
+        for (const f of state?.finished ?? []) {
+          if (f.from === target.slug) finishedDone.mutate(f.id);
+        }
+      }
+      setComposer(null);
+      refresh();
+    },
+    onError: (err) =>
+      setError(err instanceof Error ? err.message : "Could not send that"),
   });
 
   const setVoice = useVoice(setComposer, setError);
@@ -317,6 +337,7 @@ export function NotchApp({
         agentsOpen={agentsOpen}
         onAgentsOpen={setAgentsOpen}
         onFinishedDone={(id) => finishedDone.mutate(id)}
+        onShowSource={(slug) => showSource.mutate(slug)}
       />
     </div>
   );

@@ -74,6 +74,9 @@ type Session struct {
 
 	// turnDone: the last thing in the log is a finished turn.
 	turnDone bool
+	// busyNow: the tool says its window is working right now, whatever
+	// the log's last record is.
+	busyNow bool
 }
 
 const (
@@ -127,6 +130,7 @@ func (s *Scanner) Sessions(scan []Detection, now time.Time) []Session {
 				claude[i].OpenKnown, claude[i].Open = true, isOpen
 				if isOpen {
 					claude[i].PID = entry.PID
+					claude[i].busyNow = entry.Busy
 				}
 			}
 		}
@@ -146,7 +150,9 @@ func (s *Scanner) Sessions(scan []Detection, now time.Time) []Session {
 		t, err := time.Parse(time.RFC3339, out[i].UpdatedAt)
 		out[i].Active = err == nil && now.Sub(t) <= sessionActiveWindow
 		switch {
-		case out[i].Active:
+		case out[i].Active, out[i].busyNow:
+			// A turn can end in the log while the window keeps working (a
+			// shell it started is still running): the window's word wins.
 			out[i].State = SessionWorking
 		case out[i].turnDone:
 			out[i].State = SessionYourTurn
@@ -739,6 +745,17 @@ type OpenSession struct {
 	Status string
 }
 
+// claudeBusy reports whether a Claude Code window's status means it is
+// working: "busy" mid-turn, or "shell" while a command it started still
+// runs after the turn's text is done. Claude Code shows both as Working.
+func claudeBusy(status string) bool {
+	switch strings.TrimSpace(status) {
+	case "busy", "shell":
+		return true
+	}
+	return false
+}
+
 // ClaudeStatusIdle is the one status in which a Claude Code window is
 // waiting for a new prompt. Measured on 2.1.296: "busy" while it works,
 // "waiting" (waitingFor "permission prompt") while it asks for approval,
@@ -879,7 +896,7 @@ func (s *Scanner) OpenSessions() (open map[string]OpenSession, known bool) {
 		if !s.alivePIDs[rec.PID] {
 			continue
 		}
-		open[claudeCodeID+":"+strings.TrimSpace(rec.SessionID)] = OpenSession{PID: rec.PID, Busy: rec.Status == "busy", Interactive: rec.Kind == claudeInteractiveKind, Status: strings.TrimSpace(rec.Status)}
+		open[claudeCodeID+":"+strings.TrimSpace(rec.SessionID)] = OpenSession{PID: rec.PID, Busy: claudeBusy(rec.Status), Interactive: rec.Kind == claudeInteractiveKind, Status: strings.TrimSpace(rec.Status)}
 	}
 	if unread {
 		return nil, false

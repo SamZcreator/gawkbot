@@ -355,6 +355,13 @@ func (b *Broker) notchStateLocked(now time.Time, defaults runtimeDefaults, owner
 	})
 
 	counts := map[string]int{}
+	bots := make([]string, 0, len(b.members))
+	for _, m := range b.members {
+		if !isSessionMember(m) && m.Slug != lead {
+			bots = append(bots, m.Slug)
+		}
+	}
+	dmEnds := b.notchAnswersLocked(bots)
 	for _, m := range b.members {
 		if isSessionMember(m) && !owner {
 			continue
@@ -391,11 +398,12 @@ func (b *Broker) notchStateLocked(now time.Time, defaults runtimeDefaults, owner
 		if agent.Kind != notchAgentSession {
 			// When it last did anything: the notch lists the newest first.
 			agent.UpdatedAt = snap.LastTime
-			if notchBotFinished(snap, needsYou[m.Slug], now) {
-				// Its turn is over and the reply waits on the human: the
-				// same "your turn" a session shows.
-				agent.State = agentdetect.SessionYourTurn
-				agent.LastSaid = notchFinishedSummary(snap.Detail)
+			if end := dmEnds[m.Slug]; notchBotFinished(snap, m.Slug, end, needsYou[m.Slug], now) {
+				// It answered the human and the answer waits on them: the
+				// same "your turn" a session shows, from that answer.
+				agent.State, agent.UpdatedAt = agentdetect.SessionYourTurn, end.last.Timestamp
+				agent.LastSaid = lastWordsOf(end.last.Content)
+				agent.Recap = notchBotRecap(end)
 			}
 		}
 		counts[agent.Mood]++

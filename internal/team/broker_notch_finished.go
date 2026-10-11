@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nex-crm/wuphf/internal/agentdetect"
+	"github.com/nex-crm/wuphf/internal/channel"
 )
 
 // A finished turn needs the human as much as a question does: the bot or
@@ -135,25 +136,110 @@ func (b *Broker) markNotchSeen(id string, now time.Time) error {
 	return atomicWriteFile(path, raw)
 }
 
-// notchFinishedSummary is what a bot's finished turn said, from the
-// "reply ready · <summary>" its runner leaves in the activity snapshot.
-func notchFinishedSummary(detail string) string {
-	rest := strings.TrimPrefix(strings.TrimSpace(detail), "reply ready")
-	return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(rest), "·"))
+// notchAnswer is a bot's latest message, when it is waiting on the human,
+// and what the human had asked it.
+type notchAnswer struct {
+	last  channelMessage
+	asked string
+	found bool
 }
 
-// notchBotFinished reports whether a bot's latest turn ended with a reply
-// that is still waiting on the human.
-func notchBotFinished(snap botActivitySnapshot, hasOpenRequest bool, now time.Time) bool {
-	if hasOpenRequest || !strings.HasPrefix(strings.TrimSpace(snap.Detail), "reply ready") {
+// notchAnswersLocked finds, for each bot, whether its latest message is an
+// answer waiting on the human: in their DM, a reply to the human's own
+// message, or one that tags them, with nothing from the human after it in
+// that conversation. A bot whose latest message went to another bot (a
+// handoff, a reply in a thread between bots) has nothing waiting. One pass
+// from the newest message. Caller holds b.mu.
+func (b *Broker) notchAnswersLocked(slugs []string) map[string]*notchAnswer {
+	isBot := make(map[string]bool, len(slugs))
+	ends := make(map[string]*notchAnswer, len(slugs))
+	for _, slug := range slugs {
+		isBot[slug] = true
+	}
+	human := func(from string) bool { return isHumanMessageSender(strings.ToLower(strings.TrimSpace(from))) }
+	byID := map[string]channelMessage{}
+	for _, msg := range b.messages {
+		if human(msg.From) {
+			byID[msg.ID] = msg
+		}
+	}
+	humanSpokeAfter := map[string]bool{}
+	decided := make(map[string]bool, len(slugs))
+	left := len(slugs)
+	for i := len(b.messages) - 1; i >= 0 && left > 0; i-- {
+		msg := b.messages[i]
+		if strings.TrimSpace(msg.Content) == "" || msg.From == "system" {
+			continue
+		}
+		if human(msg.From) {
+			humanSpokeAfter[msg.Channel] = true
+			continue
+		}
+		if !isBot[msg.From] || decided[msg.From] {
+			continue
+		}
+		decided[msg.From] = true
+		left--
+		if humanSpokeAfter[msg.Channel] {
+			continue // the human already answered it
+		}
+		asked, ok := "", false
+		if parent, replied := byID[msg.ReplyTo]; replied {
+			asked, ok = parent.Content, true
+		}
+		if msg.Channel == channel.DirectSlug("human", msg.From) || notchTagsHuman(msg.Tagged) {
+			ok = true
+		}
+		if !ok {
+			continue
+		}
+		if asked == "" {
+			asked = b.notchLastHumanBeforeLocked(msg.Channel, i)
+		}
+		ends[msg.From] = &notchAnswer{last: msg, asked: strings.TrimSpace(asked), found: true}
+	}
+	return ends
+}
+
+func notchTagsHuman(tagged []string) bool {
+	for _, t := range tagged {
+		if isHumanMessageSender(strings.ToLower(strings.TrimSpace(t))) {
+			return true
+		}
+	}
+	return false
+}
+
+// notchLastHumanBeforeLocked is the human's latest message in room before
+// index i. Caller holds b.mu.
+func (b *Broker) notchLastHumanBeforeLocked(room string, i int) string {
+	for j := i - 1; j >= 0; j-- {
+		msg := b.messages[j]
+		if msg.Channel == room && isHumanMessageSender(strings.ToLower(strings.TrimSpace(msg.From))) {
+			return msg.Content
+		}
+	}
+	return ""
+}
+
+// notchBotFinished reports whether a bot has answered the human and the
+// answer waits on them (notchAnswersLocked), recently, and the bot is not
+// working on something else or asking.
+func notchBotFinished(snap botActivitySnapshot, slug string, end *notchAnswer, hasOpenRequest bool, now time.Time) bool {
+	if hasOpenRequest || end == nil || !end.found || end.last.From != slug {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(snap.Status)) {
 	case "active", "error":
 		return false
 	}
-	at, err := time.Parse(time.RFC3339, snap.LastTime)
+	at, err := time.Parse(time.RFC3339, end.last.Timestamp)
 	return err == nil && now.Sub(at) <= notchFinishedWindow
+}
+
+// notchBotRecap is a bot's finished turn as its card tells it.
+func notchBotRecap(end *notchAnswer) *notchRecap {
+	return &notchRecap{Asked: firstWords(end.asked, 500), Reply: firstWords(strings.TrimSpace(end.last.Content), 1200)}
 }
 
 // notchFinishedID names one finished turn. It carries the turn's time, so
@@ -238,3 +324,27 @@ func (b *Broker) handleNotchFinishedSeen(w http.ResponseWriter, r *http.Request)
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
+
+// firstWords keeps the start of text, cut on a word.
+func firstWords(text string, max int) string {
+	r := []rune(text)
+	if len(r) <= max {
+		return text
+	}
+	cut := string(r[:max])
+	if i := strings.LastIndexAny(cut, " \n"); i > max/2 {
+		cut = cut[:i]
+	}
+	return strings.TrimSpace(cut) + "…"
+}
+
+// lastWordsOf is the end of a reply on one line, for the card's lead-in.
+func lastWordsOf(text string) string {
+	r := []rune(strings.Join(strings.Fields(text), " "))
+	if len(r) <= notchSaidMax {
+		return string(r)
+	}
+	return "…" + strings.TrimSpace(string(r[len(r)-notchSaidMax:]))
+}
+
+const notchSaidMax = 320
