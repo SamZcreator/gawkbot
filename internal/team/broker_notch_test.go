@@ -288,7 +288,8 @@ func TestNotchListsRunningSessionsAsAgentsForTheOwnerOnly(t *testing.T) {
 	now := time.Now().UTC()
 	stubLocalSessions(t, []agentdetect.Session{
 		{ID: "claude-code:aaa", Tool: "claude-code", ToolName: "Claude Code", Title: "Fix the flaky checkout test", Project: "shop", Cwd: "/Users/me/shop", State: agentdetect.SessionWorking, UpdatedAt: now.Format(time.RFC3339), Model: "claude-opus-5-5[1m]"},
-		{ID: "codex:bbb", Tool: "codex", ToolName: "Codex CLI", Title: "Tidy the migration scripts", Project: "api", State: agentdetect.SessionYourTurn, UpdatedAt: now.Add(-2 * time.Hour).Format(time.RFC3339), LastSaid: "Run them on staging?"},
+		{ID: "codex:bbb", Tool: "codex", ToolName: "Codex CLI", Title: "Tidy the migration scripts", Project: "api", State: agentdetect.SessionYourTurn, UpdatedAt: now.Add(-2 * time.Hour).Format(time.RFC3339), LastSaid: "Run them on staging?",
+			Asked: "Tidy the migration scripts", LastAsked: "Tidy the migration scripts", Reply: "Scripts are tidy.\nRun them on staging?"},
 	})
 	b := newTestBroker(t)
 	b.token = "owner-token"
@@ -336,6 +337,11 @@ func TestNotchListsRunningSessionsAsAgentsForTheOwnerOnly(t *testing.T) {
 	}
 	if len(owner.Finished) != 1 || owner.Finished[0].From != "session.codex.bbb" || owner.Finished[0].Question != "Run them on staging?" {
 		t.Fatalf("finished = %+v, want the waiting session", owner.Finished)
+	}
+	// Its card says what the work is and where it stands; a latest ask that
+	// is the opening one is not said twice.
+	if r := owner.Finished[0].Recap; r == nil || r.Project != "api" || r.Asked != "Tidy the migration scripts" || r.LastAsked != "" || r.Reply != "Scripts are tidy.\nRun them on staging?" {
+		t.Fatalf("recap = %+v", r)
 	}
 
 	for _, a := range fetch("").Agents {

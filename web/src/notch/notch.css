@@ -1560,3 +1560,63 @@ kbd {
   color: var(--mood-done);
   background: rgba(48, 209, 88, 0.12);
 }
+
+/* A finished turn's recap: what the work is and where it stands. */
+.nrecap-meta {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: var(--notch-text-tertiary);
+}
+.nrecap {
+  margin-top: 8px;
+}
+.nrecap h4 {
+  margin: 0 0 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--notch-text-tertiary);
+}
+.nrecap p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--notch-text-secondary);
+}
+.nrecap-asked {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.nrecap-reply {
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  overflow: hidden;
+}
+.nrecap .nrecap-reply {
+  color: var(--notch-text);
+}
+.nrecap .nrecap-reply.is-earlier {
+  color: var(--notch-text-secondary);
+}
+.nrecap-reply.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+.nrecap-more {
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--notch-text-secondary);
+  cursor: pointer;
+}
+.nrecap-more:hover {
+  color: var(--notch-text);
+}

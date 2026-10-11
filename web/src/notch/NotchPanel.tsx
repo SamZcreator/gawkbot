@@ -287,6 +287,10 @@ function Finished({
   onOpen: PanelProps["onOpen"];
 }) {
   const name = agent?.name ?? item.from_name ?? item.from;
+  const [more, setMore] = useState(false);
+  const recap = item.recap;
+  const when = item.created_at ? sinceShort(item.created_at, Date.now()) : "";
+  const reply = recap?.reply || item.question;
   return (
     <article
       aria-label={`${name} finished`}
@@ -307,7 +311,55 @@ function Finished({
           {agent?.kind === "session" ? <SessionMark agent={agent} /> : null}
           <span className="ntag is-turn">your turn</span>
         </div>
-        <div className="nq-text">{item.question}</div>
+        {recap?.project || when ? (
+          <div className="nrecap-meta">
+            {[
+              recap?.project,
+              when === "now" ? "just now" : when ? `${when} ago` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+        ) : null}
+        {recap?.asked ? (
+          <section className="nrecap">
+            <h4>You asked</h4>
+            <p className="nrecap-asked">{recap.asked}</p>
+          </section>
+        ) : null}
+        {recap?.last_asked ? (
+          <section className="nrecap">
+            <h4>Last you said</h4>
+            <p className="nrecap-asked">{recap.last_asked}</p>
+          </section>
+        ) : null}
+        {recap?.earlier ? (
+          <section className="nrecap">
+            <h4>Before that</h4>
+            <p className="nrecap-reply is-earlier">{recap.earlier}</p>
+          </section>
+        ) : null}
+        <section className="nrecap">
+          {recap ? (
+            <h4>{recap.earlier ? "Latest" : "Where it stands"}</h4>
+          ) : null}
+          <p
+            className={`nrecap-reply${more ? " is-open" : ""}`}
+            data-testid="notch-finished-reply"
+          >
+            {reply}
+          </p>
+          {reply.length > 240 ? (
+            <button
+              type="button"
+              className="nrecap-more"
+              aria-expanded={more}
+              onClick={() => setMore(!more)}
+            >
+              {more ? "Less" : "More"}
+            </button>
+          ) : null}
+        </section>
         <div className="nq-actions">
           {channel ? (
             <button

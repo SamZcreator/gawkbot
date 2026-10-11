@@ -64,6 +64,9 @@ type notchAgent struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 	// LastSaid is the end of its latest reply.
 	LastSaid string `json:"last_said,omitempty"`
+	// Recap is what the work is about and where it stands, for the card of
+	// a finished turn (broker_notch_finished.go). Owner only, like sessions.
+	Recap *notchRecap `json:"recap,omitempty"`
 	// Open says whether the tool has the session open right now: true, false,
 	// or absent when the tool keeps no list to ask (see agentdetect.Session).
 	// It is what tells a closed session from a quiet one.
@@ -155,6 +158,8 @@ type notchAttention struct {
 	RecommendedID string        `json:"recommended_id,omitempty"`
 	Blocking      bool          `json:"blocking,omitempty"`
 	CreatedAt     string        `json:"created_at,omitempty"`
+	// Recap is set on a finished turn: what was asked and the reply.
+	Recap *notchRecap `json:"recap,omitempty"`
 }
 
 type notchState struct {
@@ -227,6 +232,7 @@ func withNotchSessions(state notchState, sessions []agentdetect.Session, now tim
 			State:     sess.State,
 			UpdatedAt: sess.UpdatedAt,
 			LastSaid:  sess.LastSaid,
+			Recap:     sessionRecap(sess),
 			Runtime:   sessionRuntime(sess),
 			Open:      sessionOpenFlag(sess),
 		}

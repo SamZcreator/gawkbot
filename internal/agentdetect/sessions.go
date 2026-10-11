@@ -50,6 +50,15 @@ type Session struct {
 	// LastSaid is the end of the session's latest reply, so the human can
 	// see what it is waiting on without opening its window.
 	LastSaid string `json:"last_said,omitempty"`
+	// Asked is the request the session opened with, LastAsked the latest
+	// one, and Reply its latest reply in full (recap.go): enough to pick
+	// the work back up without opening its window.
+	Asked     string `json:"asked,omitempty"`
+	LastAsked string `json:"last_asked,omitempty"`
+	Reply     string `json:"reply,omitempty"`
+	// EarlierReply is the turn before, kept when Reply is too short to say
+	// where the work stands on its own.
+	EarlierReply string `json:"earlier_reply,omitempty"`
 	// Model is the model the session last ran on, as its log names it
 	// ("claude-opus-5-5"). Empty until the session has taken a turn.
 	Model string `json:"model,omitempty"`
@@ -312,7 +321,15 @@ func claudeSession(path string, info os.FileInfo, toolName string) (Session, boo
 	}
 	title, prompt := claudeTitle(tail)
 	title = claudeTitles.resolve(path, title)
-	sess.turnDone, sess.LastSaid = claudeLastTurn(tail)
+	sess.turnDone, sess.Reply = claudeLastTurn(tail)
+	sess.LastSaid = lastWords(sess.Reply, sessionSaidMax)
+	withEarlier(&sess, sess.Reply, func() string { return claudeEarlierReply(tail) })
+	sess.Reply = firstWords(sess.Reply, recapReplyMax)
+	asked, lastAsked := claudeAsks(head, tail)
+	if asked == "" {
+		asked = openingAsk(path, claudeUserText)
+	}
+	sess.Asked, sess.LastAsked = firstWords(asked, recapAskedMax), firstWords(lastAsked, recapAskedMax)
 	sess.Model = claudeModel(tail)
 	return finishSession(sess, title, prompt)
 }
@@ -367,7 +384,7 @@ func codexModel(lines [][]byte) string {
 
 // claudeLastTurn reads the last message in a Claude Code log: whether it
 // is an assistant turn that ended on its own (not one waiting on a tool),
-// and the last words the assistant wrote.
+// and the last text the assistant wrote, in full.
 func claudeLastTurn(lines [][]byte) (done bool, said string) {
 	decided := false
 	for i := len(lines) - 1; i >= 0; i-- {
@@ -395,7 +412,7 @@ func claudeLastTurn(lines [][]byte) (done bool, said string) {
 			}
 			for j := len(parts) - 1; j >= 0; j-- {
 				if parts[j].Type == "text" && strings.TrimSpace(parts[j].Text) != "" {
-					return done, lastWords(parts[j].Text, sessionSaidMax)
+					return done, strings.TrimSpace(parts[j].Text)
 				}
 			}
 		case "user":
@@ -444,25 +461,6 @@ func codexTurnDone(lines [][]byte) bool {
 		}
 	}
 	return false
-}
-
-// codexLastSaid returns the last words of the latest agent message.
-func codexLastSaid(lines [][]byte) string {
-	for i := len(lines) - 1; i >= 0; i-- {
-		if !bytes.Contains(lines[i], []byte(`"agent_message"`)) {
-			continue
-		}
-		var rec struct {
-			Payload struct {
-				Type    string `json:"type"`
-				Message string `json:"message"`
-			} `json:"payload"`
-		}
-		if json.Unmarshal(lines[i], &rec) == nil && rec.Payload.Type == "agent_message" && strings.TrimSpace(rec.Payload.Message) != "" {
-			return lastWords(rec.Payload.Message, sessionSaidMax)
-		}
-	}
-	return ""
 }
 
 // titleMemory remembers the last title seen for each log. A long stretch of
@@ -574,7 +572,11 @@ func codexSession(path string, info os.FileInfo, toolName string, names map[stri
 	head, tail := headAndTail(path, info.Size())
 	sess := baseSession(path, info, "codex", toolName)
 	sess.turnDone = codexTurnDone(tail)
-	sess.LastSaid = codexLastSaid(tail)
+	reply := codexReply(tail)
+	sess.LastSaid = lastWords(reply, sessionSaidMax)
+	sess.Reply = firstWords(reply, recapReplyMax)
+	withEarlier(&sess, reply, func() string { return codexEarlierReply(tail) })
+	sess.LastAsked = firstWords(codexLatestAsk(tail), recapAskedMax)
 	sess.Model = codexModel(tail)
 	title, prompt := "", ""
 	for _, line := range head {
@@ -618,6 +620,11 @@ func codexSession(path string, info os.FileInfo, toolName string, names map[stri
 			}
 		}
 	}
+	asked := prompt
+	if asked == "" {
+		asked = openingAsk(path, codexUserText)
+	}
+	sess.Asked = firstWords(asked, recapAskedMax)
 	return finishSession(sess, title, prompt)
 }
 

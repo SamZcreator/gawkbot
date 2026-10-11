@@ -100,3 +100,21 @@ func TestNotchFinishedSkipsAClosedSession(t *testing.T) {
 		t.Fatalf("finished = %+v, want c then b, newest first, closed a and working d left out", got)
 	}
 }
+
+// Done survives a restart: a new broker on the same state folder still
+// hides the turn, and marks older than the window are dropped.
+func TestNotchFinishedDoneSurvivesARestart(t *testing.T) {
+	b := newTestBroker(t)
+	now := time.Now().UTC()
+	if err := b.markNotchSeen("finished:eng@1", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.markNotchSeen("finished:old@1", now.Add(-9*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	again := NewBrokerAt(b.statePath)
+	seen := again.notchSeenIDs(now)
+	if !seen["finished:eng@1"] || seen["finished:old@1"] {
+		t.Fatalf("after restart seen = %v, want eng only", seen)
+	}
+}

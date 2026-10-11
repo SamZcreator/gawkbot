@@ -141,7 +141,7 @@ type Broker struct {
 	sharedMemory        map[string]map[string]string // namespace → key → value
 	lastTaggedAt        map[string]time.Time         // when each bot was last @mentioned
 	observedModels      map[string]string            // bot slug → model its last turn ran on; in-memory; guarded by mu
-	notchSeen           map[string]struct{}          // finished turns the owner marked done in the notch; in-memory; guarded by mu
+	notchSeen           notchSeenStore               // finished turns the owner marked done in the notch; own lock, saved beside the state
 	sessionAgents       sessionAgentState            // terminal sessions kept as members (broker_session_agents.go); guarded by mu
 	runtimeDefaultsMu   sync.Mutex                   // guards the three fields below; never held with mu
 	runtimeDefaultsVal  runtimeDefaults

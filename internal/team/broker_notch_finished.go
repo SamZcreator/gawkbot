@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nex-crm/wuphf/internal/agentdetect"
@@ -20,12 +23,117 @@ import (
 // open requests that /requests/answer can answer, and every client that
 // reads Attention (the phone too) relies on that.
 
+// notchRecap is enough to decide what to do with a finished turn without
+// opening its window: what the work is, what was asked last, and the
+// reply in full, which is usually the agent's account of what is done and
+// what is left.
+type notchRecap struct {
+	Project   string `json:"project,omitempty"`
+	Asked     string `json:"asked,omitempty"`
+	LastAsked string `json:"last_asked,omitempty"`
+	Reply     string `json:"reply,omitempty"`
+	// Earlier is the turn before, when Reply is too short to stand alone.
+	Earlier string `json:"earlier,omitempty"`
+}
+
+// sessionRecap is a session's recap, or nil when its log said nothing.
+func sessionRecap(sess agentdetect.Session) *notchRecap {
+	if sess.Asked == "" && sess.LastAsked == "" && sess.Reply == "" {
+		return nil
+	}
+	r := notchRecap{Project: sess.Project, Asked: sess.Asked, Reply: sess.Reply, Earlier: sess.EarlierReply}
+	if sess.LastAsked != sess.Asked {
+		r.LastAsked = sess.LastAsked
+	}
+	return &r
+}
+
 // notchFinishedWindow is how long a finished turn stays in Needs you if
 // nobody looks at it: the same span a session stays on the list at all.
 const notchFinishedWindow = 8 * time.Hour
 
-// notchSeenMax bounds the in-memory set of turns marked done.
+// notchSeenMax bounds the set of turns marked done.
 const notchSeenMax = 512
+
+// notchSeenStore is the turns the owner marked done, saved to
+// notch-seen.json beside the broker state so a restart does not bring
+// them back. It has its own lock: reading and writing the file never
+// holds the broker's.
+type notchSeenStore struct {
+	mu     sync.Mutex
+	loaded bool
+	// marks maps a finished turn's id to when it was marked done.
+	marks map[string]time.Time
+}
+
+func (b *Broker) notchSeenPath() string {
+	return filepath.Join(filepath.Dir(b.statePath), "notch-seen.json")
+}
+
+// loadLocked reads the file once. Caller holds s.mu.
+func (s *notchSeenStore) loadLocked(path string, now time.Time) {
+	if s.loaded {
+		return
+	}
+	s.loaded = true
+	s.marks = map[string]time.Time{}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var saved map[string]time.Time
+	if json.Unmarshal(raw, &saved) != nil {
+		return
+	}
+	for id, at := range saved {
+		// A mark older than the window names a turn no longer listed.
+		if strings.HasPrefix(id, "finished:") && now.Sub(at) <= notchFinishedWindow {
+			s.marks[id] = at
+		}
+	}
+}
+
+// notchSeenIDs returns the ids marked done.
+func (b *Broker) notchSeenIDs(now time.Time) map[string]bool {
+	s := &b.notchSeen
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.loadLocked(b.notchSeenPath(), now)
+	out := make(map[string]bool, len(s.marks))
+	for id := range s.marks {
+		out[id] = true
+	}
+	return out
+}
+
+// markNotchSeen records id as done and saves the set.
+func (b *Broker) markNotchSeen(id string, now time.Time) error {
+	s := &b.notchSeen
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	path := b.notchSeenPath()
+	s.loadLocked(path, now)
+	for old, at := range s.marks {
+		if now.Sub(at) > notchFinishedWindow {
+			delete(s.marks, old)
+		}
+	}
+	if len(s.marks) >= notchSeenMax {
+		// Keep the newest half: old marks name turns long since replaced.
+		cutoff := now.Add(-notchFinishedWindow / 2)
+		for old, at := range s.marks {
+			if at.Before(cutoff) {
+				delete(s.marks, old)
+			}
+		}
+	}
+	s.marks[id] = now
+	raw, err := json.Marshal(s.marks)
+	if err != nil {
+		return err
+	}
+	return atomicWriteFile(path, raw)
+}
 
 // notchFinishedSummary is what a bot's finished turn said, from the
 // "reply ready · <summary>" its runner leaves in the activity snapshot.
@@ -56,14 +164,9 @@ func notchFinishedID(slug, at string) string {
 
 // withNotchFinished lists every agent whose turn is over and waiting on the
 // human, newest first, leaving out the lead (its own chat box shows its
-// reply) and the turns the human marked done. Caller must not hold b.mu.
+// reply) and the turns the human marked done.
 func (b *Broker) withNotchFinished(state notchState) notchState {
-	b.mu.Lock()
-	seen := make(map[string]bool, len(b.notchSeen))
-	for id := range b.notchSeen {
-		seen[id] = true
-	}
-	b.mu.Unlock()
+	seen := b.notchSeenIDs(time.Now())
 	state.Finished = []notchAttention{}
 	for _, a := range state.Agents {
 		if a.IsLead || a.State != agentdetect.SessionYourTurn || a.UpdatedAt == "" {
@@ -85,6 +188,7 @@ func (b *Broker) withNotchFinished(state notchState) notchState {
 			Title:     "Your turn",
 			Question:  firstNonEmpty(a.LastSaid, "Finished. Your turn."),
 			CreatedAt: a.UpdatedAt,
+			Recap:     a.Recap,
 		})
 	}
 	sort.SliceStable(state.Finished, func(i, j int) bool {
@@ -127,12 +231,10 @@ func (b *Broker) handleNotchFinishedSeen(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "unknown finished turn", http.StatusBadRequest)
 		return
 	}
-	b.mu.Lock()
-	if b.notchSeen == nil || len(b.notchSeen) >= notchSeenMax {
-		// Old marks name turns long since replaced by newer ones.
-		b.notchSeen = make(map[string]struct{})
+	if err := b.markNotchSeen(id, time.Now()); err != nil {
+		// Still hidden until a restart; say it was not saved.
+		http.Error(w, "could not save that", http.StatusInternalServerError)
+		return
 	}
-	b.notchSeen[id] = struct{}{}
-	b.mu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

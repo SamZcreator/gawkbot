@@ -77,6 +77,19 @@ export interface NotchBriefLine {
   at?: string;
 }
 
+/** What a finished turn's work is about and where it stands. */
+export interface NotchRecap {
+  project?: string;
+  /** The request the work opened with. */
+  asked?: string;
+  /** The latest request, when it is not the opening one. */
+  last_asked?: string;
+  /** The latest reply in full, line breaks kept. */
+  reply?: string;
+  /** The turn before, when the latest reply is too short to stand alone. */
+  earlier?: string;
+}
+
 export interface NotchAttention {
   id: string;
   kind: string;
@@ -92,6 +105,8 @@ export interface NotchAttention {
   recommended_id?: string;
   blocking?: boolean;
   created_at?: string;
+  /** Set on a finished turn. */
+  recap?: NotchRecap;
 }
 
 export interface NotchState {

@@ -527,6 +527,72 @@ describe("open notch", () => {
     );
   });
 
+  it("recaps a finished turn: the work, the last ask, where it stands", async () => {
+    const reply = `Not fully finished.\n\n- Renderer done.\n- Commit pending. ${"More words. ".repeat(30)}`;
+    const state: NotchState = {
+      ...BUSY_OFFICE,
+      finished: [
+        {
+          id: "finished:designer@1",
+          kind: "finished",
+          from: "designer",
+          question: "…Commit pending.",
+          created_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+          recap: {
+            project: "gawkbot",
+            asked: "Redo the liquid glass design system on a new branch",
+            last_asked: "is it finished?",
+            reply,
+          },
+        },
+      ],
+    };
+    renderNotch({ expanded: true, state });
+    const card = screen.getByTestId("notch-finished-designer");
+    expect(card).toHaveTextContent("gawkbot · 5m ago");
+    const sections = Array.from(card.querySelectorAll(".nrecap")).map((el) => [
+      el.querySelector("h4")?.textContent,
+      el.querySelector("p")?.textContent,
+    ]);
+    expect(sections.slice(0, 2)).toEqual([
+      ["You asked", "Redo the liquid glass design system on a new branch"],
+      ["Last you said", "is it finished?"],
+    ]);
+    expect(sections[2][0]).toBe("Where it stands");
+    const where = within(card).getByTestId("notch-finished-reply");
+    expect(where.textContent).toBe(reply);
+    expect(where).not.toHaveClass("is-open");
+    await userEvent.click(within(card).getByRole("button", { name: "More" }));
+    expect(where).toHaveClass("is-open");
+  });
+
+  it("shows the turn before when the latest reply is too short to say much", () => {
+    const state: NotchState = {
+      ...BUSY_OFFICE,
+      finished: [
+        {
+          id: "finished:designer@2",
+          kind: "finished",
+          from: "designer",
+          question: "Restarted the preview.",
+          recap: {
+            reply: "Restarted the preview.",
+            earlier: "Pricing page rebuilt; two plans left to write.",
+          },
+        },
+      ],
+    };
+    renderNotch({ expanded: true, state });
+    const card = screen.getByTestId("notch-finished-designer");
+    const sections = Array.from(card.querySelectorAll(".nrecap")).map(
+      (el) => el.querySelector("h4")?.textContent,
+    );
+    expect(sections).toEqual(["Before that", "Latest"]);
+    expect(card).toHaveTextContent(
+      "Pricing page rebuilt; two plans left to write.",
+    );
+  });
+
   it("does not send the human to a window that is closed", async () => {
     const state: NotchState = {
       ...BUSY_OFFICE,

@@ -971,6 +971,7 @@ func (b *Broker) claimNotchSessionRows(state notchState, sessions []agentdetect.
 		// The folder stays the member's own, fixed when it was made.
 		row.Tool, row.ToolName = sess.Tool, sess.ToolName
 		row.State, row.UpdatedAt, row.LastSaid = sess.State, sess.UpdatedAt, sess.LastSaid
+		row.Recap = sessionRecap(sess)
 		row.Runtime = sessionRuntime(sess)
 		// This scan is at least as fresh as the registry's last look.
 		// can_message stays the gate's (sessionMessageabilityLocked): a
