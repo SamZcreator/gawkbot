@@ -163,6 +163,8 @@ type notchAttention struct {
 	// Suggestions are replies the human could send, the recommended one
 	// first (broker_notch_suggest.go). Absent until written.
 	Suggestions []notchSuggestion `json:"suggestions,omitempty"`
+	// SuggestionsPending is true while they are being written.
+	SuggestionsPending bool `json:"suggestions_pending,omitempty"`
 	// secret marks a private prompt: nothing about it is suggested.
 	secret bool
 }

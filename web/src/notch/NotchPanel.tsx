@@ -167,16 +167,25 @@ function Choices({
   choices,
   keys,
   busy,
+  pending,
   danger,
   onChoose,
 }: {
   choices: Choice[];
   keys: boolean;
   busy: boolean;
+  /** The replies are still being written. */
+  pending?: boolean;
   danger?: (c: Choice) => boolean;
   onChoose: (c: Choice) => void;
 }) {
-  if (choices.length === 0) return null;
+  if (choices.length === 0) {
+    return pending ? (
+      <p className="nchoices-pending" role="status">
+        Writing suggested replies…
+      </p>
+    ) : null;
+  }
   return (
     <ul className="nchoices" aria-label="Choose a reply">
       {choices.map((c, i) => (
@@ -299,6 +308,7 @@ function Question({
           choices={choices}
           keys={selected}
           busy={busy}
+          pending={item.suggestions_pending}
           danger={(c) =>
             c.kind === "option" && /^(reject|deny|decline)/i.test(c.optionId)
           }
@@ -468,6 +478,7 @@ function Finished({
           choices={choices}
           keys={selected}
           busy={sending}
+          pending={!sent && item.suggestions_pending}
           onChoose={(c) => {
             if (target && c.kind === "reply") onSend(target, c.text);
           }}

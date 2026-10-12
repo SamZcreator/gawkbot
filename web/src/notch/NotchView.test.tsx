@@ -633,6 +633,24 @@ describe("open notch", () => {
     );
   });
 
+  it("says when a card's replies are still being written", () => {
+    const [turn] = FINISHED_OFFICE.finished ?? [];
+    const state: NotchState = {
+      ...FINISHED_OFFICE,
+      finished: [
+        { ...turn, suggestions: undefined, suggestions_pending: true },
+      ],
+    };
+    renderNotch({ expanded: true, state });
+    const card = screen.getByTestId("notch-finished-codex");
+    expect(within(card).getByRole("status")).toHaveTextContent(
+      "Writing suggested replies…",
+    );
+    expect(
+      within(card).queryByRole("list", { name: "Choose a reply" }),
+    ).toBeNull();
+  });
+
   it("puts a question's recommended answer on top of its list", () => {
     const state: NotchState = {
       ...BUSY_OFFICE,

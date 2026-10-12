@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -63,16 +65,75 @@ var notchSuggestFn = func(ctx context.Context, kind, system, user string) (strin
 // notchSuggestGo starts the worker; tests run it inline.
 var notchSuggestGo = func(run func()) { go run() }
 
-// notchSuggestStore remembers each card's suggestions by card id. One call
-// runs at a time, so a notch full of cards never fans out.
+// notchSuggestWorkers is how many calls run at once: enough that a notch
+// full of cards fills in quickly, few enough that it never fans out.
+const notchSuggestWorkers = 2
+
+// notchSuggestStore remembers each card's suggestions by card id, saved to
+// notch-suggestions.json beside the broker state so a restart does not ask
+// for them all again.
 type notchSuggestStore struct {
 	mu      sync.Mutex
+	loaded  bool
 	done    map[string][]notchSuggestion
 	order   []string
 	failed  map[string]time.Time
-	running bool
+	workers int
 	queue   []notchSuggestJob
 	queued  map[string]bool
+	// saveMu orders the file writes of concurrent workers. Taken before mu.
+	saveMu sync.Mutex
+}
+
+// notchSuggestSaved is the file's shape: oldest first, so the cap keeps
+// the newest after a restart too.
+type notchSuggestSaved struct {
+	ID          string            `json:"id"`
+	Suggestions []notchSuggestion `json:"suggestions"`
+}
+
+func (b *Broker) notchSuggestPath() string {
+	return filepath.Join(filepath.Dir(b.statePath), "notch-suggestions.json")
+}
+
+// loadLocked reads the saved suggestions once. Caller holds s.mu.
+func (s *notchSuggestStore) loadLocked(path string) {
+	if s.loaded {
+		return
+	}
+	s.loaded = true
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var saved []notchSuggestSaved
+	if json.Unmarshal(raw, &saved) != nil {
+		return
+	}
+	for _, e := range saved {
+		if strings.TrimSpace(e.ID) != "" && len(e.Suggestions) >= notchSuggestMin {
+			s.rememberLocked(e.ID, e.Suggestions)
+		}
+	}
+}
+
+// saveNotchSuggestions writes what is remembered. A failed write costs only
+// a repeat call after the next restart, and the next success writes again.
+func (b *Broker) saveNotchSuggestions() {
+	s := &b.notchSuggest
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+	s.mu.Lock()
+	saved := make([]notchSuggestSaved, 0, len(s.order))
+	for _, id := range s.order {
+		saved = append(saved, notchSuggestSaved{ID: id, Suggestions: s.done[id]})
+	}
+	s.mu.Unlock()
+	raw, err := json.Marshal(saved)
+	if err != nil {
+		return
+	}
+	_ = atomicWriteFile(b.notchSuggestPath(), raw)
 }
 
 type notchSuggestJob struct {
@@ -90,6 +151,7 @@ func (b *Broker) withNotchSuggestions(state notchState, owner bool, kind string,
 	}
 	s := &b.notchSuggest
 	s.mu.Lock()
+	s.loadLocked(b.notchSuggestPath())
 	finished := make([]notchAttention, len(state.Finished))
 	for i, item := range state.Finished {
 		finished[i] = s.attachLocked(item, kind, now)
@@ -102,12 +164,10 @@ func (b *Broker) withNotchSuggestions(state notchState, owner bool, kind string,
 		}
 		attention[i] = s.attachLocked(item, kind, now)
 	}
-	start := len(s.queue) > 0 && !s.running
-	if start {
-		s.running = true
-	}
+	start := min(len(s.queue), notchSuggestWorkers-s.workers)
+	s.workers += max(start, 0)
 	s.mu.Unlock()
-	if start {
+	for i := 0; i < start; i++ {
 		notchSuggestGo(b.runNotchSuggestions)
 	}
 	state.Finished, state.Attention = finished, attention
@@ -134,6 +194,7 @@ func (s *notchSuggestStore) attachLocked(item notchAttention, kind string, now t
 		return item
 	}
 	if s.queued[item.ID] {
+		item.SuggestionsPending = true
 		return item
 	}
 	prompt := notchSuggestPrompt(item)
@@ -145,16 +206,18 @@ func (s *notchSuggestStore) attachLocked(item notchAttention, kind string, now t
 	}
 	s.queued[item.ID] = true
 	s.queue = append(s.queue, notchSuggestJob{id: item.ID, kind: kind, prompt: prompt})
+	item.SuggestionsPending = true
 	return item
 }
 
-// runNotchSuggestions works through the queue, one call at a time.
+// runNotchSuggestions is one worker: it takes calls off the queue until
+// none are left.
 func (b *Broker) runNotchSuggestions() {
 	s := &b.notchSuggest
 	for {
 		s.mu.Lock()
 		if len(s.queue) == 0 {
-			s.running = false
+			s.workers--
 			s.mu.Unlock()
 			return
 		}
@@ -182,6 +245,9 @@ func (b *Broker) runNotchSuggestions() {
 			s.failed[job.id] = time.Now()
 		}
 		s.mu.Unlock()
+		if ok {
+			b.saveNotchSuggestions()
+		}
 	}
 }
 

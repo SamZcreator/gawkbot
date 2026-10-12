@@ -116,6 +116,8 @@ export interface NotchAttention {
   recap?: NotchRecap;
   /** Replies to choose from, recommended first. Absent until written. */
   suggestions?: NotchSuggestion[];
+  /** True while those replies are being written. */
+  suggestions_pending?: boolean;
 }
 
 export interface NotchState {

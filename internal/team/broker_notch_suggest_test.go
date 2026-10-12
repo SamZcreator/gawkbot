@@ -169,3 +169,65 @@ func TestNotchSuggestNeverFallsBackToAnotherTool(t *testing.T) {
 		t.Fatalf("err = %v, want errNotchSuggestNoOneShot", err)
 	}
 }
+
+func TestNotchSuggestionsSurviveARestart(t *testing.T) {
+	calls := 0
+	stubNotchSuggest(t, func(context.Context, string, string) (string, error) {
+		calls++
+		return twoSuggestions, nil
+	})
+	b := newTestBroker(t)
+	card := notchAttention{ID: "finished:eng@1", Recap: &notchRecap{Reply: "Done. Merge?"}}
+	now := time.Now()
+	b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
+
+	again := NewBrokerAt(b.statePath)
+	state := again.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
+	if calls != 1 {
+		t.Fatalf("asked again after a restart: %d calls", calls)
+	}
+	if got := state.Finished[0].Suggestions; len(got) != 2 || got[0].Label != "Ship it" {
+		t.Fatalf("restored suggestions = %+v", got)
+	}
+}
+
+func TestNotchSuggestionsSayWhileTheyAreBeingWritten(t *testing.T) {
+	prevGo := notchSuggestGo
+	var started []func()
+	notchSuggestGo = func(run func()) { started = append(started, run) }
+	t.Cleanup(func() { notchSuggestGo = prevGo })
+	stubFn := notchSuggestFn
+	notchSuggestFn = func(context.Context, string, string, string) (string, error) { return twoSuggestions, nil }
+	t.Cleanup(func() { notchSuggestFn = stubFn })
+
+	b := newTestBroker(t)
+	now := time.Now()
+	cards := []notchAttention{
+		{ID: "finished:a@1", Recap: &notchRecap{Reply: "A done."}},
+		{ID: "finished:b@1", Recap: &notchRecap{Reply: "B done."}},
+		{ID: "finished:c@1", Recap: &notchRecap{Reply: "C done."}},
+	}
+	state := b.withNotchSuggestions(notchState{Finished: cards}, true, "codex", now)
+	for _, c := range state.Finished {
+		if !c.SuggestionsPending || c.Suggestions != nil {
+			t.Fatalf("card %s: pending=%v suggestions=%v", c.ID, c.SuggestionsPending, c.Suggestions)
+		}
+	}
+	if len(started) != notchSuggestWorkers {
+		t.Fatalf("started %d workers for 3 cards, want %d", len(started), notchSuggestWorkers)
+	}
+	// A second read starts no more while both are busy.
+	b.withNotchSuggestions(notchState{Finished: cards}, true, "codex", now)
+	if len(started) != notchSuggestWorkers {
+		t.Fatalf("started %d workers, want still %d", len(started), notchSuggestWorkers)
+	}
+	for _, run := range started {
+		run()
+	}
+	state = b.withNotchSuggestions(notchState{Finished: cards}, true, "codex", now)
+	for _, c := range state.Finished {
+		if c.SuggestionsPending || len(c.Suggestions) != 2 {
+			t.Fatalf("card %s after the workers: pending=%v n=%d", c.ID, c.SuggestionsPending, len(c.Suggestions))
+		}
+	}
+}
