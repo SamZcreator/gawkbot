@@ -385,6 +385,21 @@ jobs:
             echo "::endgroup::"
             exit "$status"
           fi
+      # The suites above run internal/team under -race only, where the
+      # inbox speed tests skip their wall-clock ceilings (raceEnabled in
+      # internal/team/race_on_test.go): the detector, not the code, sets
+      # the time there. This run holds the ceilings on a plain build, and
+      # refuses to pass if the filter stops matching them, so the guard
+      # cannot go quiet by being renamed away.
+      - name: Speed limits without race (internal/team)
+        run: |
+          set -euo pipefail
+          go test -count=1 -timeout 5m -run 'Under[0-9]+ms' -v ./internal/team 2>&1 | tee go-test-speed.log
+          passed=$(grep -cE '^--- PASS: Test[A-Za-z0-9_]*Under[0-9]+ms' go-test-speed.log || true)
+          if [ "$passed" -lt 2 ]; then
+            echo "expected the inbox speed tests to run and pass, got $passed" >&2
+            exit 1
+          fi
       - name: Upload go test logs on failure
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # ratchet:actions/upload-artifact@v7
@@ -393,6 +408,7 @@ jobs:
           path: |
             go-test-race.log
             go-test-teammcp.log
+            go-test-speed.log
           retention-days: 7
           if-no-files-found: ignore
 
