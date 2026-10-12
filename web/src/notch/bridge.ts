@@ -1,4 +1,8 @@
-import type { NotchGeometry } from "./types";
+import type { NotchGeometry, NotchHotkey } from "./types";
+
+/** The open panel's size outside the Mac app, which sends its own. */
+export const EXPANDED_WIDTH = 640;
+export const EXPANDED_HEIGHT = 820;
 
 // The notch page runs inside a WKWebView owned by the Mac app
 // (desktop/oswails/notch_darwin.m). This is the whole contract between them.
@@ -92,5 +96,13 @@ export function readGeometry(search: string): NotchGeometry {
     earWidth: num(params, "ew", 64),
     band: 0,
     nativeGlass: params.get("glass") === "1",
+    expandedWidth: num(params, "xw", EXPANDED_WIDTH),
+    expandedHeight: num(params, "xh", EXPANDED_HEIGHT),
+    hotkey: readHotkey(params.get("hk")),
   };
+}
+
+function readHotkey(v: string | null): NotchHotkey | undefined {
+  if (v === "alt" || v === "ctrl-alt" || v === "") return v;
+  return undefined;
 }

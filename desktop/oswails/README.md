@@ -74,10 +74,13 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
   them waiting they start talking to each other below it
   (`web/src/notch/antics.ts`). The collapsed panel grows a transparent
   "stage" below the strip for this; only the strip itself reacts to hover.
-- **Keyboard**: ⌃⌥Space opens the notch from anywhere (Carbon
-  `RegisterEventHotKey`, so no Accessibility permission is needed).
-  J/K move between questions, 1–9 answer, ↵ takes the recommended answer,
-  R replies, M messages the Chief of Staff, hold V to talk, Esc closes. The
+- **Keyboard**: ⌥Space opens the notch from anywhere, or ⌃⌥Space when
+  another app owns ⌥Space (Carbon `RegisterEventHotKey`, so no Accessibility
+  permission is needed). The page is told which one it got (`hk` in the
+  page URL) and its first-run tour teaches that one. ↑/↓ move through the
+  replies on offer, ↵ sends, 1–9 pick on the selected card, J/K move between
+  cards, R replies, D marks a finished turn done, M messages the Chief of
+  Staff, hold V to talk, Esc closes. The
   panel becomes key while open but is non-activating, so the app you were in
   stays active.
 - **Voice**: hold V (or the mic button) to talk. `SFSpeechRecognizer` turns

@@ -1,16 +1,18 @@
 // Keyboard map for the open notch. Everything has a key, so answering an
 // agent is one keystroke:
 //
-//   J / ↓        next question          K / ↑      previous question
-//   ← / →        move along the question's buttons (↵ presses the one in focus)
-//   1–9          pick that answer       ↵          the recommended answer
-//                (an option, or a suggested reply, in the order shown)
+//   ↑ / ↓        move through the replies on offer, card after card
+//   ↵            send the reply in focus (with none in focus, the recommended one)
+//   1–9          send that reply on the selected card
+//   J / K        next / previous card
+//   ← / →        move along the selected card's buttons
 //   R            reply in words         V (hold)   reply with your voice
 //                                       ⌥V (hold)  the same, from inside the reply box
+//   D            mark a finished turn done
 //   M            message the Chief of Staff
 //   Esc          close (or cancel the reply you are typing)
 //
-// ⌃⌥Space opens the notch from anywhere; that one is a global hotkey
+// ⌥Space (⌃⌥Space when ⌥Space is taken) opens the notch from anywhere; a global hotkey
 // registered by the Mac app (notch_darwin.m), not handled here.
 
 import { type Choice, choicesOf } from "./choices";
@@ -18,6 +20,9 @@ import type { NotchAttention } from "./types";
 
 export type NotchAction =
   | { type: "move"; delta: 1 | -1 }
+  /** Step the focus through the replies on offer, across cards. */
+  | { type: "choice"; delta: 1 | -1 }
+  | { type: "done" }
   /** Step the focus along the selected question's buttons. */
   | { type: "option"; delta: 1 | -1 }
   | { type: "choose"; optionId: string }
@@ -58,9 +63,12 @@ function chooseAction(choice: Choice | undefined): NotchAction {
 const MOVES: Readonly<Record<string, 1 | -1>> = {
   j: 1,
   J: 1,
-  ArrowDown: 1,
   k: -1,
   K: -1,
+};
+
+const CHOICE_MOVES: Readonly<Record<string, 1 | -1>> = {
+  ArrowDown: 1,
   ArrowUp: -1,
 };
 
@@ -85,6 +93,10 @@ function letterAction(
       return { type: "message_lead" };
     case "o":
       return { type: "open_full" };
+    case "d":
+      return selected?.kind === "finished"
+        ? { type: "done" }
+        : { type: "none" };
     case "v":
       return input.repeat ? { type: "none" } : { type: "voice_start" };
     default:
@@ -123,6 +135,8 @@ export function keyAction(
     return { type: "none" };
   const delta = MOVES[key];
   if (delta) return { type: "move", delta };
+  const step = CHOICE_MOVES[key];
+  if (step) return { type: "choice", delta: step };
   if (key === "ArrowRight") return { type: "option", delta: 1 };
   if (key === "ArrowLeft") return { type: "option", delta: -1 };
   // A focused button takes Enter itself; we must not also answer for it.
@@ -137,10 +151,12 @@ export function keyAction(
 
 /** The shortcut legend shown in the panel footer. */
 export const SHORTCUTS: readonly [string, string][] = [
-  ["J K", "move"],
+  ["↑ ↓", "choose"],
+  ["↵", "send"],
+  ["1–9", "pick"],
+  ["J K", "cards"],
   ["← →", "buttons"],
-  ["1–9", "answer"],
-  ["↵", "recommended"],
+  ["D", "done"],
   ["R", "reply"],
   ["V", "hold to talk"],
   ["O", "full view"],

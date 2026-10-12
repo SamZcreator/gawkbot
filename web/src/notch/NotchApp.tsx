@@ -26,7 +26,17 @@ import {
   usePeeks,
   useVoice,
 } from "./hooks";
-import type { ComposerState, ReplyTarget } from "./NotchPanel";
+import {
+  firstLessonStep,
+  type LessonStep,
+  nextLessonStep,
+  saveLessonDone,
+} from "./lesson";
+import {
+  agentChannel,
+  type ComposerState,
+  type ReplyTarget,
+} from "./NotchPanel";
 import { stageHeight, stripShapeFor } from "./NotchStrip";
 import { NotchView } from "./NotchView";
 import { finishedSlugs } from "./order";
@@ -92,7 +102,13 @@ export function NotchApp({
   const state = query.data ?? null;
   const attention = useMemo(() => state?.attention ?? [], [state]);
   const agents = useMemo(() => state?.agents ?? [], [state]);
-  const selected = attention.find((a) => a.id === selectedId) ?? attention[0];
+  // Every card the keyboard moves through, in the order the panel shows
+  // them: the questions, then the finished turns.
+  const cards = useMemo(
+    () => [...(state?.attention ?? []), ...(state?.finished ?? [])],
+    [state],
+  );
+  const selected = cards.find((a) => a.id === selectedId) ?? cards[0];
 
   useEffect(() => {
     const uninstall = installNativeReceiver(setExpanded, {
@@ -138,8 +154,37 @@ export function NotchApp({
     postNative({ type: "ears", width: shape.earWidth, band: shape.band });
   }, [shape.earWidth, shape.band]);
 
+  // The first-run tour (lesson.ts): it moves on when the notch opens and
+  // closes, and when a practice reply is chosen.
+  const [lessonStep, setLessonStep] = useState<LessonStep>(() =>
+    firstLessonStep(measured.hotkey),
+  );
+  const lessonEvent = useCallback(
+    (event: Parameters<typeof nextLessonStep>[1]) =>
+      setLessonStep((step) => {
+        const next = nextLessonStep(step, event);
+        if (next === "done" && step !== "done") saveLessonDone();
+        return next;
+      }),
+    [],
+  );
+  useEffect(() => {
+    lessonEvent(expanded ? "opened" : "closed");
+  }, [expanded, lessonEvent]);
+  // While the bubble under the closed notch teaches the shortcut, the
+  // bored gang keeps quiet so the two never talk over each other.
+  const teaching = lessonStep === "open" && !expanded;
+  const shownLine = teaching ? null : line;
+  const shownPeeker = teaching ? null : peeker;
+
   // Room below the notch for the current act.
-  const stage = stageHeight({ line, peeker, arrival, expanded });
+  const stage = stageHeight({
+    line: shownLine,
+    peeker: shownPeeker,
+    arrival,
+    expanded,
+    lesson: teaching,
+  });
   useEffect(() => {
     postNative({ type: "stage", height: stage });
   }, [stage]);
@@ -289,22 +334,38 @@ export function NotchApp({
     });
   }, [selected]);
 
+  // Where a reply chosen on a card goes: the question's answer, or the
+  // finished agent's own conversation.
+  const cardTarget = (id: string): ReplyTarget | null => {
+    const asked = attention.find((a) => a.id === id);
+    if (asked) {
+      return {
+        kind: "answer",
+        requestId: id,
+        to: asked.from_name ?? asked.from,
+      };
+    }
+    const turn = state?.finished?.find((f) => f.id === id);
+    const agent = turn && state?.agents.find((a) => a.slug === turn.from);
+    const channel = agent && state ? agentChannel(agent, state) : null;
+    if (!(turn && agent && channel)) return null;
+    return { kind: "message", slug: turn.from, name: agent.name, channel };
+  };
+
   useNotchKeys(expanded, {
-    attention,
-    selected,
+    attention: cards,
+    // During the practice step a stray ↵ or number must not answer a real
+    // card: only the arrows (and ↵ on the focused practice reply) act.
+    selected: lessonStep === "choose" ? undefined : selected,
     composer,
     select: setSelectedId,
     choose: (id, choiceId) => answer.mutate({ id, choiceId }),
     suggest: (id, text) => {
-      const to = attention.find((a) => a.id === id);
-      send.mutate({
-        target: {
-          kind: "answer",
-          requestId: id,
-          to: to?.from_name ?? to?.from ?? "",
-        },
-        text,
-      });
+      const target = cardTarget(id);
+      if (target) send.mutate({ target, text });
+    },
+    done: (id) => {
+      if (state?.finished?.some((f) => f.id === id)) finishedDone.mutate(id);
     },
     reply: replyTarget,
     lead: leadTarget,
@@ -344,8 +405,11 @@ export function NotchApp({
         expanded={expanded}
         gang={gang}
         boredom={bored}
-        line={line}
-        peeker={peeker}
+        line={shownLine}
+        peeker={shownPeeker}
+        lessonStep={lessonStep}
+        onLessonPracticed={() => lessonEvent("practiced")}
+        onLessonSkip={() => lessonEvent("skipped")}
         arrival={arrival}
         cheer={cheer}
         selectedId={selected?.id ?? null}

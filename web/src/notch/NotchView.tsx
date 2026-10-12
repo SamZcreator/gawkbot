@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from "react";
 
 import { type BotRuntime, BotRuntimeContext } from "../lib/botRuntime";
+import { EXPANDED_HEIGHT, EXPANDED_WIDTH } from "./bridge";
+import { LessonBubble } from "./NotchLesson";
 import { NotchPanel, type PanelProps } from "./NotchPanel";
 import {
   NotchStage,
@@ -14,8 +16,7 @@ import type { NotchGeometry } from "./types";
 // one black shell that grows out of the camera housing. NotchApp owns the
 // data, timers, sounds and the native bridge.
 
-export const EXPANDED_WIDTH = 460;
-export const EXPANDED_HEIGHT = 560;
+export { EXPANDED_HEIGHT, EXPANDED_WIDTH } from "./bridge";
 
 export type NotchViewProps = Omit<StripProps, "expanded"> &
   Omit<PanelProps, "state"> & {
@@ -42,8 +43,12 @@ export function NotchView(props: NotchViewProps) {
     (slug: string) => runtimes.get(slug),
     [runtimes],
   );
+  const openHeight = geometry.expandedHeight ?? EXPANDED_HEIGHT;
   const width = expanded
-    ? Math.max(EXPANDED_WIDTH, collapsedWidth(geometry))
+    ? Math.max(
+        geometry.expandedWidth ?? EXPANDED_WIDTH,
+        collapsedWidth(geometry),
+      )
     : collapsedWidth(geometry);
   const stage = stageHeight({
     line: props.line,
@@ -58,10 +63,13 @@ export function NotchView(props: NotchViewProps) {
         style={{
           ["--notch-strip-h" as string]: `${geometry.notchHeight + geometry.band}px`,
           height: expanded
-            ? EXPANDED_HEIGHT
+            ? openHeight
             : geometry.notchHeight + geometry.band + stage,
         }}
       >
+        {!expanded && props.lessonStep === "open" ? (
+          <LessonBubble geometry={geometry} hotkey={geometry.hotkey} />
+        ) : null}
         <NotchStage
           state={state}
           geometry={geometry}
@@ -77,7 +85,7 @@ export function NotchView(props: NotchViewProps) {
           style={{
             width,
             height: expanded
-              ? EXPANDED_HEIGHT
+              ? openHeight
               : geometry.notchHeight + geometry.band,
           }}
           data-testid="notch-shell"
@@ -93,7 +101,9 @@ export function NotchView(props: NotchViewProps) {
             arrival={props.arrival}
             expanded={expanded}
           />
-          {expanded ? <NotchPanel {...props} state={state} /> : null}
+          {expanded ? (
+            <NotchPanel {...props} state={state} hotkey={geometry.hotkey} />
+          ) : null}
         </div>
       </div>
     </BotRuntimeContext.Provider>

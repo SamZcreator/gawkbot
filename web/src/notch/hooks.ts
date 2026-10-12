@@ -304,8 +304,10 @@ export interface KeyHandlers {
   composer: ComposerState | null;
   select: (id: string) => void;
   choose: (requestId: string, optionId: string) => void;
-  /** Sends text as the answer to a question. */
-  suggest: (requestId: string, text: string) => void;
+  /** Sends text as the answer to a card: a question or a finished turn. */
+  suggest: (cardId: string, text: string) => void;
+  /** Marks a finished turn done. */
+  done: (cardId: string) => void;
   reply: () => ReplyTarget | null;
   lead: () => ReplyTarget | null;
   open: (target: ReplyTarget) => void;
@@ -320,6 +322,11 @@ export function runKeyAction(action: NotchAction, h: KeyHandlers): boolean {
   switch (action.type) {
     case "option":
       return moveOptionFocus(action.delta);
+    case "choice":
+      return moveChoiceFocus(action.delta);
+    case "done":
+      if (h.selected) h.done(h.selected.id);
+      return true;
     case "move": {
       if (h.attention.length === 0) return false;
       dropButtonFocus();
@@ -390,6 +397,53 @@ export function moveOptionFocus(delta: 1 | -1): boolean {
         : buttons.length - 1
       : (at + delta + buttons.length) % buttons.length;
   buttons[next].focus();
+  return true;
+}
+
+/**
+ * What ↑ and ↓ step through: every card's replies in the order shown, or
+ * for a card with none, its first button (Reply).
+ */
+function choiceTargets(): HTMLButtonElement[] {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(".npanel .nq"),
+  ).flatMap((card) => {
+    const rows = Array.from(
+      card.querySelectorAll<HTMLButtonElement>(".nchoice:not(:disabled)"),
+    );
+    if (rows.length > 0) return rows;
+    const first = card.querySelector<HTMLButtonElement>(
+      ".nq-actions button:not(:disabled)",
+    );
+    return first ? [first] : [];
+  });
+}
+
+/**
+ * Steps the focus through the replies on offer, from one card into the
+ * next, stopping at the ends. With none in focus yet, it starts on the
+ * selected card's first (recommended) reply. The card in focus becomes the
+ * selected one (the panel selects on focus), so ↵ and 1–9 follow it.
+ * Returns false when no card offers anything.
+ */
+export function moveChoiceFocus(delta: 1 | -1): boolean {
+  const targets = choiceTargets();
+  if (targets.length === 0) return false;
+  const at = targets.indexOf(document.activeElement as HTMLButtonElement);
+  let next: number;
+  if (at >= 0) {
+    next = Math.min(targets.length - 1, Math.max(0, at + delta));
+  } else {
+    // The tour's practice card first while it shows, else the selected card.
+    const selected =
+      document.querySelector(".npanel .nq.is-lesson") ??
+      document.querySelector(".npanel .nq.is-selected");
+    const start = selected
+      ? targets.findIndex((t) => selected.contains(t))
+      : -1;
+    next = start >= 0 ? start : 0;
+  }
+  targets[next].focus();
   return true;
 }
 

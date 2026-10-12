@@ -125,4 +125,21 @@ describe("replying to a finished turn", () => {
       within(card).queryByRole("list", { name: "Choose a reply" }),
     ).toBeNull();
   });
+
+  it("answers a finished card from the keyboard: J to it, then its number", async () => {
+    sendMessage.mockClear();
+    await openNotch();
+    await screen.findByTestId("notch-finished-cc-1");
+    // The questions come first; J moves card by card down to the finished one.
+    await userEvent.keyboard("jj");
+    const card = screen.getByTestId("notch-finished-cc-1");
+    await waitFor(() => expect(card).toHaveClass("is-selected"));
+    await userEvent.keyboard("2");
+    await waitFor(() =>
+      expect(sendMessage).toHaveBeenCalledWith(
+        expect.stringContaining("cc-1"),
+        "Hold off for now.",
+      ),
+    );
+  });
 });

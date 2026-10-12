@@ -8,9 +8,24 @@ const k = (key: string, extra = {}) =>
   keyAction({ key, typing: false, ...extra }, approval);
 
 describe("keyAction", () => {
-  it("moves between questions", () => {
+  it("J and K move between cards; the up and down arrows move through the replies", () => {
     expect(k("j")).toEqual({ type: "move", delta: 1 });
-    expect(k("ArrowUp")).toEqual({ type: "move", delta: -1 });
+    expect(k("K")).toEqual({ type: "move", delta: -1 });
+    expect(k("ArrowDown")).toEqual({ type: "choice", delta: 1 });
+    expect(k("ArrowUp")).toEqual({ type: "choice", delta: -1 });
+  });
+
+  it("D marks a finished turn done, and nothing else", () => {
+    const turn = {
+      id: "finished:eng@1",
+      kind: "finished",
+      from: "eng",
+      question: "Done.",
+    };
+    expect(keyAction({ key: "d", typing: false }, turn)).toEqual({
+      type: "done",
+    });
+    expect(k("d")).toEqual({ type: "none" });
   });
 
   it("answers with a number or the recommended one on Enter", () => {

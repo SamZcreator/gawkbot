@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  EXPANDED_HEIGHT,
+  EXPANDED_WIDTH,
   installNativeReceiver,
   isInMacApp,
   postNative,
@@ -50,6 +52,9 @@ describe("notch bridge", () => {
       earWidth: 72,
       band: 0,
       nativeGlass: false,
+      expandedWidth: EXPANDED_WIDTH,
+      expandedHeight: EXPANDED_HEIGHT,
+      hotkey: undefined,
     });
     // The Mac app draws the sheet's glass itself and says so.
     expect(readGeometry("?nw=186&nh=32&ew=72&glass=1").nativeGlass).toBe(true);
@@ -59,7 +64,22 @@ describe("notch bridge", () => {
       earWidth: 64,
       band: 0,
       nativeGlass: false,
+      expandedWidth: EXPANDED_WIDTH,
+      expandedHeight: EXPANDED_HEIGHT,
+      hotkey: undefined,
     });
+  });
+
+  it("takes the open size and the shortcut the Mac app got", () => {
+    const g = readGeometry("?nw=186&xw=600&xh=700&hk=alt");
+    expect([g.expandedWidth, g.expandedHeight, g.hotkey]).toEqual([
+      600,
+      700,
+      "alt",
+    ]);
+    expect(readGeometry("?hk=ctrl-alt").hotkey).toBe("ctrl-alt");
+    expect(readGeometry("?hk=").hotkey).toBe("");
+    expect(readGeometry("?hk=cmd-q").hotkey).toBeUndefined();
   });
 
   it("only buzzes for attention that is new since the last poll", () => {

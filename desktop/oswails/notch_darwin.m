@@ -34,11 +34,12 @@ static const CGFloat kCompactEarWidth = 40.0;
 // At rest, agents at work show as a row of small dots and spinners in a
 // thin band just under the notch, no wider than it. At most this tall.
 static const CGFloat kMaxBandHeight = 14.0;
-// The open panel. The page draws itself at exactly this size, so keep these
-// equal to EXPANDED_WIDTH / EXPANDED_HEIGHT in web/src/notch/NotchView.tsx:
-// a smaller window clips the composer and the shortcut footer.
-static const CGFloat kExpandedWidth = 460.0;
-static const CGFloat kExpandedHeight = 560.0;
+// The open panel, as large as it can be up to these, leaving a margin of
+// screen below it. The page is told the size (xw / xh in pageURL) and draws
+// itself at exactly that, so the composer and the footer are never clipped.
+static const CGFloat kExpandedWidth = 640.0;
+static const CGFloat kExpandedHeight = 820.0;
+static const CGFloat kExpandedScreenMargin = 48.0;
 // Matches the .notch-shell CSS transition, so the panel shrinks only after
 // the page has finished animating closed.
 static const NSTimeInterval kCollapseDelay = 0.3;
@@ -136,6 +137,8 @@ static const CGFloat kMaxStageHeight = 160.0;
 // Opened from the keyboard (the global hotkey): stays open until Esc or the
 // hotkey again, even with the pointer elsewhere.
 @property(nonatomic) BOOL pinned;
+// Which global shortcut was registered: "alt", "ctrl-alt", or "".
+@property(nonatomic, copy) NSString *hotKeyName;
 // Push-to-talk. Typed as id so the class compiles on macOS < 10.15, where
 // the Speech framework is unavailable; every use is behind @available.
 @property(nonatomic, strong) id speechRecognizer;
@@ -203,11 +206,20 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	return self.earsWidth;
 }
 
+// The open panel's size on this screen.
+- (NSSize)expandedSize {
+	NSRect sf = [self notchScreen].frame;
+	CGFloat w = MIN(kExpandedWidth, NSWidth(sf) - 2 * kExpandedScreenMargin);
+	CGFloat h = MIN(kExpandedHeight, NSHeight(sf) - kExpandedScreenMargin);
+	return NSMakeSize(round(w), round(h));
+}
+
 - (NSRect)frameExpanded:(BOOL)expanded {
 	NSScreen *screen = [self notchScreen];
 	CGFloat collapsedWidth = self.notchWidth + 2 * [self earWidth];
-	CGFloat w = expanded ? MAX(kExpandedWidth, collapsedWidth) : collapsedWidth;
-	CGFloat h = expanded ? kExpandedHeight : self.notchHeight + self.bandHeight + self.stageHeight;
+	NSSize open = [self expandedSize];
+	CGFloat w = expanded ? MAX(open.width, collapsedWidth) : collapsedWidth;
+	CGFloat h = expanded ? open.height : self.notchHeight + self.bandHeight + self.stageHeight;
 	NSRect sf = screen.frame;
 	return NSMakeRect(round(NSMidX(sf) - w / 2), NSMaxY(sf) - h, w, h);
 }
@@ -218,8 +230,10 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 		: self.officeURL;
 	// glass=1 tells the page the sheet's material is drawn natively, so it
 	// paints a light tint instead of an opaque sheet.
-	NSString *s = [NSString stringWithFormat:@"%@/notch.html?nw=%.0f&nh=%.0f&ew=%.0f&glass=1",
-		base, self.notchWidth, self.notchHeight, self.notchWidth > 0 ? kCompactEarWidth : kEarWidth];
+	NSSize open = [self expandedSize];
+	NSString *s = [NSString stringWithFormat:@"%@/notch.html?nw=%.0f&nh=%.0f&ew=%.0f&xw=%.0f&xh=%.0f&glass=1&hk=%@",
+		base, self.notchWidth, self.notchHeight, self.notchWidth > 0 ? kCompactEarWidth : kEarWidth,
+		open.width, open.height, self.hotKeyName ?: @""];
 	return [NSURL URLWithString:s];
 }
 
@@ -284,9 +298,10 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	                                             name:NSApplicationDidChangeScreenParametersNotification
 	                                           object:nil];
 
+	// The hotkey first: the page is told which one it got.
+	[self registerHotKey];
 	[self.webView loadRequest:[NSURLRequest requestWithURL:[self pageURL]]];
 	[self.panel orderFrontRegardless];
-	[self registerHotKey];
 	[self startDockWatch];
 }
 
@@ -330,20 +345,31 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	}];
 }
 
-// ⌃⌥Space opens the notch from anywhere, ready for the keyboard. Carbon's
-// RegisterEventHotKey needs no Accessibility permission, unlike a global
-// NSEvent monitor.
+// ⌥Space opens the notch from anywhere, ready for the keyboard; when another
+// app already owns it, ⌃⌥Space does. Carbon's RegisterEventHotKey needs no
+// Accessibility permission, unlike a global NSEvent monitor. hotKeyName
+// tells the page which one it got ("alt", "ctrl-alt", or "" for neither),
+// so what it teaches is the key that works.
 - (void)registerHotKey {
+	self.hotKeyName = @"";
 	EventTypeSpec spec = {kEventClassKeyboard, kEventHotKeyPressed};
 	OSStatus status = InstallApplicationEventHandler(&GawkHotKeyHandler, 1, &spec, NULL, NULL);
 	EventHotKeyID hotKeyID = {'gawk', 1};
 	if (status == noErr) {
-		status = RegisterEventHotKey(kVK_Space, controlKey | optionKey, hotKeyID, GetApplicationEventTarget(), 0, &gHotKey);
+		status = RegisterEventHotKey(kVK_Space, optionKey, hotKeyID, GetApplicationEventTarget(), 0, &gHotKey);
+		if (status == noErr) {
+			self.hotKeyName = @"alt";
+		} else {
+			status = RegisterEventHotKey(kVK_Space, controlKey | optionKey, hotKeyID, GetApplicationEventTarget(), 0, &gHotKey);
+			if (status == noErr) {
+				self.hotKeyName = @"ctrl-alt";
+			}
+		}
 	}
 	if (status != noErr) {
-		// Another app already owns ⌃⌥Space, or Carbon refused. The notch
-		// still opens on hover; only the keyboard shortcut is missing.
-		NSLog(@"gawkbot notch: global hotkey ⌃⌥Space not registered (OSStatus %d)", (int)status);
+		// Other apps own both, or Carbon refused. The notch still opens on
+		// hover; only the keyboard shortcut is missing.
+		NSLog(@"gawkbot notch: global hotkey ⌥Space / ⌃⌥Space not registered (OSStatus %d)", (int)status);
 	}
 	goNotchHotKeyStatus((int)status);
 }

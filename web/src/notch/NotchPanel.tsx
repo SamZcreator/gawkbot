@@ -9,13 +9,16 @@ import {
 import { RuntimeLogo } from "../components/onboarding/RuntimeLogos";
 import { type Choice, choicesOf } from "./choices";
 import { SHORTCUTS } from "./keys";
+import type { LessonStep } from "./lesson";
 import { NotchBot } from "./NotchBot";
 import { NotchHero } from "./NotchHero";
+import { LessonCard } from "./NotchLesson";
 import { byNeed, finishedSlugs } from "./order";
 import type {
   NotchAgent,
   NotchAttention,
   NotchBrief,
+  NotchHotkey,
   NotchState,
 } from "./types";
 
@@ -68,6 +71,12 @@ export interface PanelProps {
   onAgentsOpen: (open: boolean) => void;
   /** Bumped each time an answer lands; the lead claps for it. */
   cheer?: number;
+  /** The shortcut that opens the notch, for the tour to teach. */
+  hotkey?: NotchHotkey;
+  /** The first-run tour (lesson.ts); absent or "done" when it is over. */
+  lessonStep?: LessonStep;
+  onLessonPracticed?: () => void;
+  onLessonSkip?: () => void;
 }
 
 // One short tag per fact: who made the agent, then where it runs. Mirrors
@@ -131,7 +140,10 @@ function Tag({ tag }: { tag: AgentTag }) {
 const TEAM_FACES = 5;
 
 /** The DM a row writes into; null for a session that has no DM yet. */
-function agentChannel(agent: NotchAgent, state: NotchState): string | null {
+export function agentChannel(
+  agent: NotchAgent,
+  state: NotchState,
+): string | null {
   if (agent.kind === "session" && !agent.can_message) return null;
   if (agent.is_lead && state.lead_dm) return state.lead_dm;
   return dmChannel("human", agent.slug);
@@ -254,6 +266,9 @@ function Question({
         }
         onSelect(item.id);
       }}
+      onFocus={() => {
+        if (!selected) onSelect(item.id);
+      }}
     >
       <NotchBot
         slug={item.from || "someone"}
@@ -336,8 +351,10 @@ function Finished({
   item,
   agent,
   channel,
+  selected,
   sent,
   sending,
+  onSelect,
   onReply,
   onSend,
   onDone,
@@ -347,6 +364,8 @@ function Finished({
   item: NotchAttention;
   agent: NotchAgent | undefined;
   channel: string | null;
+  selected: boolean;
+  onSelect: PanelProps["onSelect"];
   /** The reply went and waits for the session to take it. */
   sent: boolean;
   sending: boolean;
@@ -369,8 +388,13 @@ function Finished({
   return (
     <article
       aria-label={`${name} finished`}
-      className="nq is-finished"
+      className={`nq is-finished${selected ? " is-selected" : ""}`}
       data-testid={`notch-finished-${item.from}`}
+      data-open={selected ? "true" : undefined}
+      onMouseEnter={() => onSelect(item.id)}
+      onFocus={() => {
+        if (!selected) onSelect(item.id);
+      }}
     >
       <NotchBot
         slug={item.from || "someone"}
@@ -442,7 +466,7 @@ function Finished({
         ) : null}
         <Choices
           choices={choices}
-          keys={false}
+          keys={selected}
           busy={sending}
           onChoose={(c) => {
             if (target && c.kind === "reply") onSend(target, c.text);
@@ -897,6 +921,12 @@ export function NotchPanel(props: PanelProps) {
       </NotchHero>
 
       <div className="nscroll">
+        <LessonCard
+          step={props.lessonStep ?? "done"}
+          hotkey={props.hotkey}
+          onPracticed={() => props.onLessonPracticed?.()}
+          onSkip={() => props.onLessonSkip?.()}
+        />
         {needsYou > 0 ? (
           <section aria-label="Needs you">
             <h3 className="nsection">Needs you · {needsYou}</h3>
@@ -922,6 +952,8 @@ export function NotchPanel(props: PanelProps) {
                   item={item}
                   agent={agent}
                   channel={agent ? agentChannel(agent, state) : null}
+                  selected={item.id === selectedId}
+                  onSelect={props.onSelect}
                   sent={props.sentTo?.has(item.id) ?? false}
                   sending={props.sending}
                   onReply={props.onReply}

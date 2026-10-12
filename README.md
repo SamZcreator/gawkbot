@@ -134,15 +134,18 @@ widget and no dock badge.
   cue: a slide whistle and a boing for a question, a bell for an approval,
   a sad trombone for an error, a xylophone ta-da for a finished job. The
   trackpad taps when you hover.
-- **You do it all from the keyboard.** <kbd>⌃⌥Space</kbd> opens it from
-  anywhere. Then:
+- **You do it all from the keyboard.** <kbd>⌥Space</kbd> opens it from
+  anywhere (<kbd>⌃⌥Space</kbd> if another app already uses <kbd>⌥Space</kbd>),
+  and a short tour the first time shows you how. Then:
 
   | Key | Does |
   |---|---|
-  | <kbd>J</kbd> / <kbd>K</kbd> | Move between questions |
-  | <kbd>1</kbd>–<kbd>9</kbd> | Pick an answer |
-  | <kbd>↵</kbd> | Take the recommended answer |
+  | <kbd>↑</kbd> / <kbd>↓</kbd> | Move through the replies on offer, card after card |
+  | <kbd>↵</kbd> | Send the reply you are on, or the recommended one |
+  | <kbd>1</kbd>–<kbd>9</kbd> | Send that reply on the selected card |
+  | <kbd>J</kbd> / <kbd>K</kbd> | Move between cards |
   | <kbd>R</kbd> | Reply in your own words |
+  | <kbd>D</kbd> | Mark a finished turn done |
   | <kbd>M</kbd> | Message the Chief of Staff |
   | <kbd>V</kbd> (hold), <kbd>⌥V</kbd> while typing | Talk instead of typing |
   | <kbd>O</kbd> | Open the full app; close its window to come back to the notch |

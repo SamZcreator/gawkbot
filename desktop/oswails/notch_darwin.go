@@ -27,7 +27,7 @@ import (
 var (
 	notchOpenMu sync.Mutex
 	notchOpenFn func(path string)
-	// notchHotKeyStatus is the OSStatus of registering the global ⌃⌥Space
+	// notchHotKeyStatus is the OSStatus of registering the global ⌥Space (or ⌃⌥Space)
 	// hotkey (notch_darwin.m registerHotKey): 0 once it took, otherwise the
 	// Carbon error, so a diagnostics surface can say the shortcut is gone.
 	notchHotKeyStatus atomic.Int32

@@ -13,6 +13,7 @@ import type { Mood, NotchAgent, NotchGeometry, NotchState } from "./types";
 export const STAGE_PEEK = 46;
 export const STAGE_CHAT = 92;
 export const STAGE_ARRIVE = 64;
+export const STAGE_LESSON = 58;
 
 export interface StripProps {
   state: NotchState | null;
@@ -30,9 +31,13 @@ export interface StripProps {
 }
 
 export function stageHeight(
-  p: Pick<StripProps, "line" | "peeker" | "expanded" | "arrival">,
+  p: Pick<StripProps, "line" | "peeker" | "expanded" | "arrival"> & {
+    /** The tour's bubble under the closed notch. */
+    lesson?: boolean;
+  },
 ): number {
   if (p.expanded) return 0;
+  if (p.lesson) return STAGE_LESSON;
   if (p.line) return STAGE_CHAT;
   if (p.arrival) return STAGE_ARRIVE;
   if (p.peeker) return STAGE_PEEK;

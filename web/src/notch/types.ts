@@ -166,4 +166,14 @@ export interface NotchGeometry {
    * the page), so the page paints a tint instead of an opaque sheet.
    */
   nativeGlass?: boolean;
+  /** The open panel's size; the Mac app fits it to the screen. */
+  expandedWidth?: number;
+  expandedHeight?: number;
+  /**
+   * The global shortcut that opens the notch: "alt" (⌥Space), "ctrl-alt"
+   * (⌃⌥Space), "" when none could be registered, absent outside the app.
+   */
+  hotkey?: NotchHotkey;
 }
+
+export type NotchHotkey = "alt" | "ctrl-alt" | "";

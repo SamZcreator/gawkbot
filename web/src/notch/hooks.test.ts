@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BUSY_OFFICE } from "./fixtures";
 import {
   type KeyHandlers,
+  moveChoiceFocus,
   moveOptionFocus,
   runKeyAction,
   trackFirstSeen,
@@ -16,6 +17,7 @@ function handlers(over: Partial<KeyHandlers> = {}): KeyHandlers {
     select: vi.fn(),
     choose: vi.fn(),
     suggest: vi.fn(),
+    done: vi.fn(),
     reply: () => ({ kind: "answer", requestId: "req-1", to: "Gemini CLI" }),
     lead: () => ({
       kind: "message",
@@ -112,5 +114,42 @@ describe("moveOptionFocus", () => {
     moveOptionFocus(-1);
     expect(document.activeElement?.id).toBe("z");
     document.body.innerHTML = "";
+  });
+});
+
+describe("moveChoiceFocus", () => {
+  it("walks every card's replies in order, from the selected card, stopping at the ends", () => {
+    document.body.innerHTML = `
+      <div class="npanel">
+        <article class="nq"><ul class="nchoices">
+          <li><button class="nchoice" id="q1">Approve</button></li>
+          <li><button class="nchoice" id="q2" disabled>Busy</button></li>
+        </ul><div class="nq-actions"><button id="q-reply">Reply</button></div></article>
+        <article class="nq is-selected"><ul class="nchoices">
+          <li><button class="nchoice" id="f1">Merge</button></li>
+          <li><button class="nchoice" id="f2">Hold</button></li>
+        </ul></article>
+        <article class="nq"><div class="nq-actions"><button id="w-reply">Reply</button><button id="w-done">Done</button></div></article>
+      </div>`;
+    const focused = () => document.activeElement?.id;
+    // Nothing in focus: the selected card's recommended reply.
+    expect(moveChoiceFocus(1)).toBe(true);
+    expect(focused()).toBe("f1");
+    moveChoiceFocus(1);
+    expect(focused()).toBe("f2");
+    // Into the next card, which offers no replies: its Reply button.
+    moveChoiceFocus(1);
+    expect(focused()).toBe("w-reply");
+    moveChoiceFocus(1);
+    expect(focused()).toBe("w-reply");
+    moveChoiceFocus(-1);
+    moveChoiceFocus(-1);
+    moveChoiceFocus(-1);
+    // Skips the disabled reply and the card's own secondary buttons.
+    expect(focused()).toBe("q1");
+    moveChoiceFocus(-1);
+    expect(focused()).toBe("q1");
+    document.body.innerHTML = "";
+    expect(moveChoiceFocus(1)).toBe(false);
   });
 });
