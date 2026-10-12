@@ -1,5 +1,5 @@
 import { hotkeyCaps, type LessonStep } from "./lesson";
-import type { NotchGeometry, NotchHotkey } from "./types";
+import type { NotchHotkey } from "./types";
 
 // What the first-run lesson draws (lesson.ts has the steps).
 
@@ -10,35 +10,6 @@ function Caps({ hotkey }: { hotkey: NotchHotkey | undefined }) {
         <kbd key={cap}>{cap}</kbd>
       ))}
     </span>
-  );
-}
-
-/** Under the closed notch: the keys that open it. */
-export function LessonBubble({
-  geometry,
-  hotkey,
-}: {
-  geometry: NotchGeometry;
-  hotkey: NotchHotkey | undefined;
-}) {
-  const caps = hotkeyCaps(hotkey);
-  return (
-    <div
-      className="notch-stage nlesson-bubble"
-      data-testid="notch-lesson-bubble"
-      style={{ top: geometry.notchHeight + geometry.band + 8 }}
-      aria-live="polite"
-    >
-      <div className="notch-bubble">
-        {caps.length > 0 ? (
-          <>
-            Press <Caps hotkey={hotkey} /> to open me from anywhere
-          </>
-        ) : (
-          "Point at the notch to open me"
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -105,16 +76,14 @@ export function LessonCard({
               ))}
             </ul>
           </>
+        ) : hotkeyCaps(hotkey).length > 0 ? (
+          <p className="nq-text" role="status">
+            Now press <Caps hotkey={hotkey} /> to close me, then press it again
+            to bring me back. It works from any app.
+          </p>
         ) : (
           <p className="nq-text" role="status">
-            That is all there is to it. Press{" "}
-            {hotkeyCaps(hotkey).length > 0 ? (
-              <>
-                <Caps hotkey={hotkey} /> or{" "}
-              </>
-            ) : null}
-            <kbd>Esc</kbd> to close, and the same keys open it again from any
-            app.
+            That is all there is to it. Press <kbd>Esc</kbd> to close.
           </p>
         )}
         <div className="nq-actions">

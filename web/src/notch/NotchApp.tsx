@@ -162,29 +162,17 @@ export function NotchApp({
   const lessonEvent = useCallback(
     (event: Parameters<typeof nextLessonStep>[1]) =>
       setLessonStep((step) => {
-        const next = nextLessonStep(step, event);
+        const next = nextLessonStep(step, event, !!measured.hotkey);
         if (next === "done" && step !== "done") saveLessonDone();
         return next;
       }),
-    [],
+    [measured.hotkey],
   );
   useEffect(() => {
     lessonEvent(expanded ? "opened" : "closed");
   }, [expanded, lessonEvent]);
-  // While the bubble under the closed notch teaches the shortcut, the
-  // bored gang keeps quiet so the two never talk over each other.
-  const teaching = lessonStep === "open" && !expanded;
-  const shownLine = teaching ? null : line;
-  const shownPeeker = teaching ? null : peeker;
-
   // Room below the notch for the current act.
-  const stage = stageHeight({
-    line: shownLine,
-    peeker: shownPeeker,
-    arrival,
-    expanded,
-    lesson: teaching,
-  });
+  const stage = stageHeight({ line, peeker, arrival, expanded });
   useEffect(() => {
     postNative({ type: "stage", height: stage });
   }, [stage]);
@@ -405,8 +393,8 @@ export function NotchApp({
         expanded={expanded}
         gang={gang}
         boredom={bored}
-        line={shownLine}
-        peeker={shownPeeker}
+        line={line}
+        peeker={peeker}
         lessonStep={lessonStep}
         onLessonPracticed={() => lessonEvent("practiced")}
         onLessonSkip={() => lessonEvent("skipped")}

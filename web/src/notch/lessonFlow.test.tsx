@@ -7,8 +7,8 @@ import { BUSY_OFFICE } from "./fixtures";
 import { lessonDone } from "./lesson";
 import { NotchApp } from "./NotchApp";
 
-// The tour end to end, as a person meets it on first run: the bubble
-// under the closed notch, the practice card once it opens, and done.
+// The tour end to end, as a person meets it on first run: the practice
+// card once it opens, then closing and reopening it with the shortcut.
 
 const sendMessage = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
 const answerRequest = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
@@ -31,16 +31,15 @@ describe("the first-run tour", () => {
         <NotchApp search="?nw=186&nh=32&ew=40&hk=alt" />
       </QueryClientProvider>,
     );
-    const bubble = await screen.findByTestId("notch-lesson-bubble");
-    expect(bubble.textContent).toContain("⌥");
-    expect(bubble.textContent).toContain("Space");
+    // Nothing hangs under the closed notch, tour or not.
+    await screen.findByTestId("notch-shell");
+    expect(screen.queryByTestId("notch-lesson")).toBeNull();
+    expect(container.querySelector(".notch-stage")).toBeNull();
 
     // Outside the Mac app, hovering opens the notch; in it, ⌥Space does.
-    await userEvent.hover(
-      container.querySelector(".notch-host") as HTMLElement,
-    );
+    const host = container.querySelector(".notch-host") as HTMLElement;
+    await userEvent.hover(host);
     const card = await screen.findByTestId("notch-lesson");
-    expect(screen.queryByTestId("notch-lesson-bubble")).toBeNull();
 
     // ↓ lands on the practice card's recommended reply, ↵ sends it.
     await userEvent.keyboard("{ArrowDown}");
@@ -50,12 +49,20 @@ describe("the first-run tour", () => {
     await userEvent.keyboard("{Enter}");
     expect(answerRequest).not.toHaveBeenCalled();
     expect(sendMessage).not.toHaveBeenCalled();
-    expect(await screen.findByRole("status")).toHaveTextContent(/Esc/);
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /press ⌥\s*Space to close me, then press it again/,
+    );
 
-    await userEvent.click(screen.getByRole("button", { name: "Got it" }));
+    // Close it, then bring it back: the tour is over.
+    await userEvent.keyboard("{Escape}");
     await waitFor(() =>
       expect(screen.queryByTestId("notch-lesson")).toBeNull(),
     );
+    expect(lessonDone()).toBe(false);
+    await userEvent.unhover(host);
+    await userEvent.hover(host);
+    await screen.findByRole("list", { name: "Choose a reply" });
+    expect(screen.queryByTestId("notch-lesson")).toBeNull();
     expect(lessonDone()).toBe(true);
   });
 });

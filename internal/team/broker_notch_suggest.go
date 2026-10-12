@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,8 +15,9 @@ import (
 
 // Every card in the notch leads with what the human could say back: a few
 // replies or decisions, best first, each one tap to send. They are written
-// once per card by a single short model call off the request path, and the
-// card shows Reply and Done alone until they arrive.
+// once per card by a single short model call off the request path, on the
+// runtime the Chief of Staff runs on (its binding, else the install
+// default), and the card shows Reply and Done alone until they arrive.
 //
 // A question that already has one-tap options keeps them (the asker wrote
 // them); suggestions are for a finished turn and a question asked in words.
@@ -44,9 +46,18 @@ const (
 	notchSuggestInputMax = 1500
 )
 
-// notchSuggestFn writes suggestions; swapped by tests.
-var notchSuggestFn = func(ctx context.Context, system, user string) (string, error) {
-	return provider.RunConfiguredOneShotCtx(ctx, system, user, "")
+// errNotchSuggestNoOneShot: the Chief of Staff runs on something that
+// cannot answer one prompt and stop (a gateway bot, a local model server),
+// so there are no suggestions rather than ones from another tool.
+var errNotchSuggestNoOneShot = errors.New("the chief of staff's runtime has no one-shot call")
+
+// notchSuggestFn writes suggestions with the runtime kind; swapped by tests.
+var notchSuggestFn = func(ctx context.Context, kind, system, user string) (string, error) {
+	e := provider.Lookup(kind)
+	if e == nil || !e.Capabilities.SupportsOneShot || e.OneShotCtx == nil {
+		return "", errNotchSuggestNoOneShot
+	}
+	return e.OneShotCtx(ctx, system, user, "")
 }
 
 // notchSuggestGo starts the worker; tests run it inline.
@@ -66,21 +77,22 @@ type notchSuggestStore struct {
 
 type notchSuggestJob struct {
 	id     string
+	kind   string
 	prompt string
 }
 
 // withNotchSuggestions puts each card's suggestions on it, and asks for the
 // ones not written yet. Owner only: suggestions are drawn from the owner's
 // own conversations.
-func (b *Broker) withNotchSuggestions(state notchState, owner bool, now time.Time) notchState {
-	if !owner {
+func (b *Broker) withNotchSuggestions(state notchState, owner bool, kind string, now time.Time) notchState {
+	if !owner || kind == "" {
 		return state
 	}
 	s := &b.notchSuggest
 	s.mu.Lock()
 	finished := make([]notchAttention, len(state.Finished))
 	for i, item := range state.Finished {
-		finished[i] = s.attachLocked(item, now)
+		finished[i] = s.attachLocked(item, kind, now)
 	}
 	attention := make([]notchAttention, len(state.Attention))
 	for i, item := range state.Attention {
@@ -88,7 +100,7 @@ func (b *Broker) withNotchSuggestions(state notchState, owner bool, now time.Tim
 			attention[i] = item
 			continue
 		}
-		attention[i] = s.attachLocked(item, now)
+		attention[i] = s.attachLocked(item, kind, now)
 	}
 	start := len(s.queue) > 0 && !s.running
 	if start {
@@ -113,7 +125,7 @@ func hasOneTapOption(options []notchOption) bool {
 
 // attachLocked returns item with its suggestions, queueing a call for them
 // when there are none yet; the caller starts the worker. Caller holds s.mu.
-func (s *notchSuggestStore) attachLocked(item notchAttention, now time.Time) notchAttention {
+func (s *notchSuggestStore) attachLocked(item notchAttention, kind string, now time.Time) notchAttention {
 	if got, ok := s.done[item.ID]; ok {
 		item.Suggestions = got
 		return item
@@ -132,7 +144,7 @@ func (s *notchSuggestStore) attachLocked(item notchAttention, now time.Time) not
 		s.queued = map[string]bool{}
 	}
 	s.queued[item.ID] = true
-	s.queue = append(s.queue, notchSuggestJob{id: item.ID, prompt: prompt})
+	s.queue = append(s.queue, notchSuggestJob{id: item.ID, kind: kind, prompt: prompt})
 	return item
 }
 
@@ -151,7 +163,7 @@ func (b *Broker) runNotchSuggestions() {
 		s.mu.Unlock()
 
 		ctx, cancel := context.WithTimeout(context.Background(), notchSuggestTimeout)
-		out, err := notchSuggestFn(ctx, notchSuggestSystem, job.prompt)
+		out, err := notchSuggestFn(ctx, job.kind, notchSuggestSystem, job.prompt)
 		cancel()
 		got, ok := []notchSuggestion(nil), false
 		if err == nil {
@@ -290,4 +302,18 @@ func startsWithWord(reply string) bool {
 		return false
 	}
 	return true
+}
+
+// notchLeadKindLocked is the runtime the Chief of Staff runs on: its own
+// binding, else the install default. "" when there is no lead or it is a
+// terminal session (nothing to call). Caller holds b.mu.
+func (b *Broker) notchLeadKindLocked(lead string, defaults runtimeDefaults) string {
+	m := b.findMemberLocked(lead)
+	if m == nil || isSessionMember(*m) {
+		return ""
+	}
+	if kind := strings.TrimSpace(m.Provider.Kind); kind != "" {
+		return kind
+	}
+	return defaults.Kind
 }

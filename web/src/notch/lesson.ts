@@ -4,15 +4,17 @@ import type { NotchHotkey } from "./types";
 // pick and send a reply, and how to close it. Each step ends when the
 // person does the thing, never on a timer:
 //
-//   open    the notch is closed: a bubble under it shows the keys to press
+//   open    waiting for the notch to open the first time (nothing is drawn
+//           under the closed notch, ever)
 //   choose  open: a practice card; ↓ (or ↑) moves to a reply, ↵ sends it
-//   close   the same keys, or Esc, close it
+//   close   the card says to close it with the shortcut
+//   reopen  closed: the same shortcut brings it back, which ends the tour
 //
 // The practice card sends nothing anywhere. Done (or skipped) is kept in
 // this viewer's storage; if that is cleared the lesson comes back, which is
 // harmless.
 
-export type LessonStep = "open" | "choose" | "close" | "done";
+export type LessonStep = "open" | "choose" | "close" | "reopen" | "done";
 
 const LESSON_KEY = "gawkbot.notch.lesson";
 
@@ -51,16 +53,23 @@ export function hotkeyCaps(hotkey: NotchHotkey | undefined): string[] {
   }
 }
 
-/** The step after this one, given what just happened. */
+/**
+ * The step after this one, given what just happened. Without a shortcut
+ * there is nothing to reopen with, so closing ends the tour.
+ */
 export function nextLessonStep(
   step: LessonStep,
   event: "opened" | "closed" | "practiced" | "skipped",
+  hasHotkey = true,
 ): LessonStep {
   if (event === "skipped") return "done";
   if (step === "open" && event === "opened") return "choose";
   if (step === "choose" && event === "practiced") return "close";
-  // Closing before practising skips the practice; the next open teaches it.
+  // Closed before practising: the next open teaches it again.
   if (step === "choose" && event === "closed") return "open";
-  if (step === "close" && event === "closed") return "done";
+  if (step === "close" && event === "closed") {
+    return hasHotkey ? "reopen" : "done";
+  }
+  if (step === "reopen" && event === "opened") return "done";
   return step;
 }

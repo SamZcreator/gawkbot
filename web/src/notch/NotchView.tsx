@@ -2,7 +2,6 @@ import { useCallback, useMemo } from "react";
 
 import { type BotRuntime, BotRuntimeContext } from "../lib/botRuntime";
 import { EXPANDED_HEIGHT, EXPANDED_WIDTH } from "./bridge";
-import { LessonBubble } from "./NotchLesson";
 import { NotchPanel, type PanelProps } from "./NotchPanel";
 import {
   NotchStage,
@@ -67,9 +66,6 @@ export function NotchView(props: NotchViewProps) {
             : geometry.notchHeight + geometry.band + stage,
         }}
       >
-        {!expanded && props.lessonStep === "open" ? (
-          <LessonBubble geometry={geometry} hotkey={geometry.hotkey} />
-        ) : null}
         <NotchStage
           state={state}
           geometry={geometry}

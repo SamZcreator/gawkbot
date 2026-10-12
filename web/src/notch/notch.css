@@ -770,8 +770,8 @@ kbd {
   font-size: 11.5px;
   opacity: 0.78;
 }
-/* The first-run tour: a practice card marked by an accent edge, and the
-   bubble under the closed notch with the keys to press as keycaps. */
+/* The first-run tour: a practice card marked by an accent edge, with the
+   shortcut's keys as keycaps. */
 .nq.nlesson {
   box-shadow: inset 2px 0 0 var(--notch-accent);
 }
@@ -783,11 +783,6 @@ kbd {
 }
 .nlesson-caps kbd {
   margin-right: 0;
-}
-.nlesson-bubble .notch-bubble {
-  border-radius: 14px;
-  white-space: nowrap;
-  max-width: none;
 }
 .nsent {
   margin: 10px 0 0;

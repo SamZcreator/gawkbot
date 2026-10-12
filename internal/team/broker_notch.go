@@ -204,11 +204,12 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	defaults := b.cachedRuntimeDefaults(now)
 	b.mu.Lock()
 	state := b.notchStateLocked(now, defaults, owner)
+	leadKind := b.notchLeadKindLocked(state.Lead, defaults)
 	b.mu.Unlock()
 	state, sessions = b.claimNotchSessionRows(state, sessions, now)
 	state = withNotchSessions(state, sessions, now)
 	state = b.withNotchFinished(state)
-	state = b.withNotchSuggestions(state, owner, now)
+	state = b.withNotchSuggestions(state, owner, leadKind, now)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()

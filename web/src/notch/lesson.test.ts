@@ -25,7 +25,12 @@ describe("the first-run tour", () => {
     expect(nextLessonStep("open", "opened")).toBe("choose");
     expect(nextLessonStep("choose", "opened")).toBe("choose");
     expect(nextLessonStep("choose", "practiced")).toBe("close");
-    expect(nextLessonStep("close", "closed")).toBe("done");
+    // Closing with the shortcut, then opening with it again, ends the tour.
+    expect(nextLessonStep("close", "closed")).toBe("reopen");
+    expect(nextLessonStep("reopen", "closed")).toBe("reopen");
+    expect(nextLessonStep("reopen", "opened")).toBe("done");
+    // With no shortcut there is nothing to reopen with.
+    expect(nextLessonStep("close", "closed", false)).toBe("done");
     // Closed before practising: the next open teaches it again.
     expect(nextLessonStep("choose", "closed")).toBe("open");
     expect(nextLessonStep("choose", "skipped")).toBe("done");
