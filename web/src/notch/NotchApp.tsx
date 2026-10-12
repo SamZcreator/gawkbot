@@ -200,6 +200,19 @@ export function NotchApp({
     onSettled: refresh,
   });
 
+  // Finished turns replied to whose session has not taken the reply yet.
+  const [sentTo, setSentTo] = useState<ReadonlySet<string>>(() => new Set());
+  const finishedIds = (state?.finished ?? []).map((f) => f.id).join(" ");
+  useEffect(() => {
+    // A card that went (the session took the reply) needs no mark.
+    const live = new Set(finishedIds.split(" "));
+    setSentTo((s) =>
+      [...s].every((id) => live.has(id))
+        ? s
+        : new Set([...s].filter((id) => live.has(id))),
+    );
+  }, [finishedIds]);
+
   const send = useMutation({
     mutationFn: ({ target, text }: { target: ReplyTarget; text: string }) =>
       target.kind === "answer"
@@ -210,10 +223,21 @@ export function NotchApp({
       if (target.kind === "answer") setCheer((n) => n + 1);
       else {
         play("sent");
-        // Replying to a finished turn is what it was waiting for: its card
-        // goes, as Done would take it.
-        for (const f of state?.finished ?? []) {
-          if (f.from === target.slug) finishedDone.mutate(f.id);
+        const turns = (state?.finished ?? []).filter(
+          (f) => f.from === target.slug,
+        );
+        const isSession =
+          state?.agents.find((a) => a.slug === target.slug)?.kind === "session";
+        if (isSession) {
+          // A session takes the reply only once it is waiting for you, and
+          // until then the reply lives in the running app alone. Its card
+          // stays, marked sent, and goes by itself when the session starts
+          // on it; if the app restarts first, the card is still there.
+          setSentTo((s) => new Set([...s, ...turns.map((f) => f.id)]));
+        } else {
+          // An office bot has the reply the moment it is posted: the card
+          // goes, as Done would take it.
+          for (const f of turns) finishedDone.mutate(f.id);
         }
       }
       setComposer(null);
@@ -271,6 +295,17 @@ export function NotchApp({
     composer,
     select: setSelectedId,
     choose: (id, choiceId) => answer.mutate({ id, choiceId }),
+    suggest: (id, text) => {
+      const to = attention.find((a) => a.id === id);
+      send.mutate({
+        target: {
+          kind: "answer",
+          requestId: id,
+          to: to?.from_name ?? to?.from ?? "",
+        },
+        text,
+      });
+    },
     reply: replyTarget,
     lead: leadTarget,
     open: openComposer,
@@ -323,6 +358,8 @@ export function NotchApp({
         onSelect={setSelectedId}
         onAnswer={(id, choiceId) => answer.mutate({ id, choiceId })}
         onReply={openComposer}
+        onSend={(target, text) => send.mutate({ target, text })}
+        sentTo={sentTo}
         onComposerText={(text) => setComposer((c) => (c ? { ...c, text } : c))}
         onComposerSubmit={() =>
           composer &&

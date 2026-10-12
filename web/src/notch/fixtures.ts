@@ -113,6 +113,40 @@ export const BUSY_OFFICE: NotchState = {
   ],
 };
 
+/** The busy office with a finished turn waiting, its replies suggested. */
+export const FINISHED_OFFICE: NotchState = {
+  ...BUSY_OFFICE,
+  finished: [
+    {
+      id: "finished:codex@2026-10-12T09:00:00Z",
+      kind: "finished",
+      from: "codex",
+      from_name: "Codex CLI",
+      title: "Your turn",
+      question: "Fixed the login redirect. Want me to merge it?",
+      created_at: "2026-10-12T09:00:00Z",
+      recap: {
+        project: "billing",
+        asked: "Fix the login redirect loop",
+        reply:
+          "Fixed the login redirect: the session cookie was set on the wrong path. Tests pass locally. Want me to merge it, or add a regression test first?",
+      },
+      suggestions: [
+        {
+          label: "Add a test, then merge",
+          reply:
+            "Add a regression test for the redirect loop, then merge and watch CI.",
+        },
+        { label: "Merge it", reply: "Merge it and watch CI." },
+        {
+          label: "Hold for review",
+          reply: "Hold off, I want to review it first.",
+        },
+      ],
+    },
+  ],
+};
+
 export const QUIET_OFFICE: NotchState = {
   lead: "cos",
   lead_name: "Chief of Staff",

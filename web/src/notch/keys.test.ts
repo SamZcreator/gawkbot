@@ -29,6 +29,41 @@ describe("keyAction", () => {
     });
   });
 
+  it("numbers the choices in the order shown, the recommended one first", () => {
+    const recLast = {
+      ...approval,
+      options: [
+        { id: "approve", label: "Approve" },
+        { id: "reject", label: "Reject" },
+      ],
+      recommended_id: "reject",
+    };
+    const on = (key: string) => keyAction({ key, typing: false }, recLast);
+    expect(on("1")).toEqual({ type: "choose", optionId: "reject" });
+    expect(on("2")).toEqual({ type: "choose", optionId: "approve" });
+    expect(on("Enter")).toEqual({ type: "choose", optionId: "reject" });
+  });
+
+  it("sends a suggested reply when a question asked in words has them", () => {
+    const suggested = {
+      ...typed,
+      suggestions: [
+        { label: "HubSpot", reply: "Use HubSpot, we already pay for it." },
+        { label: "Ask me later", reply: "Leave it until Monday." },
+      ],
+    };
+    const on = (key: string) => keyAction({ key, typing: false }, suggested);
+    expect(on("Enter")).toEqual({
+      type: "suggest",
+      text: "Use HubSpot, we already pay for it.",
+    });
+    expect(on("2")).toEqual({
+      type: "suggest",
+      text: "Leave it until Monday.",
+    });
+    expect(on("3")).toEqual({ type: "none" });
+  });
+
   it("holds V to talk", () => {
     expect(k("v")).toEqual({ type: "voice_start" });
     expect(k("v", { repeat: true })).toEqual({ type: "none" });

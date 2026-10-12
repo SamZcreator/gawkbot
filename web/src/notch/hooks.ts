@@ -304,6 +304,8 @@ export interface KeyHandlers {
   composer: ComposerState | null;
   select: (id: string) => void;
   choose: (requestId: string, optionId: string) => void;
+  /** Sends text as the answer to a question. */
+  suggest: (requestId: string, text: string) => void;
   reply: () => ReplyTarget | null;
   lead: () => ReplyTarget | null;
   open: (target: ReplyTarget) => void;
@@ -334,6 +336,9 @@ export function runKeyAction(action: NotchAction, h: KeyHandlers): boolean {
     }
     case "choose":
       if (h.selected) h.choose(h.selected.id, action.optionId);
+      return true;
+    case "suggest":
+      if (h.selected) h.suggest(h.selected.id, action.text);
       return true;
     case "reply":
     case "message_lead": {
@@ -373,7 +378,7 @@ function focusOnButton(): boolean {
 export function moveOptionFocus(delta: 1 | -1): boolean {
   const buttons = Array.from(
     document.querySelectorAll<HTMLButtonElement>(
-      ".nq.is-selected .nq-actions button:not(:disabled)",
+      ".nq.is-selected .nchoices button:not(:disabled), .nq.is-selected .nq-actions button:not(:disabled)",
     ),
   );
   if (buttons.length === 0) return false;

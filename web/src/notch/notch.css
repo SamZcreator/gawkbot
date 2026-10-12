@@ -631,25 +631,6 @@ kbd {
 .nq-brief .ntag {
   margin-left: 6px;
 }
-/* What each answer would mean, under the brief. */
-.nq-means {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--notch-text-secondary);
-}
-.nq-means div {
-  display: flex;
-  gap: 6px;
-}
-.nq-means dt {
-  flex: none;
-  font-weight: 600;
-  color: var(--notch-text);
-}
-.nq-means dd {
-  margin: 0;
-}
 /* The folded agent list is a card you can plainly press: the agents'
    faces, how many there are and what they are up to, and a labelled
    chevron that turns when it opens. */
@@ -714,6 +695,85 @@ kbd {
 }
 .nteam-toggle.is-open .nteam-chev {
   transform: rotate(90deg);
+}
+/* The replies a card offers, one per row: the recommended one on top in
+   the solid accent, the rest a quiet fill. Reply, Done and Open sit
+   under them as quiet buttons. */
+.nchoices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.nchoice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 10px;
+  text-align: left;
+  font: 500 12.5px / 1.35 var(--notch-font);
+  color: var(--notch-text);
+  background: var(--notch-control);
+  cursor: pointer;
+}
+.nchoice:hover:not(:disabled) {
+  background: var(--notch-control-hover);
+}
+.nchoice:active:not(:disabled) {
+  background: var(--notch-control-press);
+}
+.nchoice:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.nchoice.is-recommended {
+  color: var(--notch-accent-ink);
+  background: var(--notch-accent);
+}
+.nchoice.is-recommended:hover:not(:disabled),
+.nchoice.is-recommended:active:not(:disabled) {
+  background: var(--notch-text);
+}
+.nchoice.is-danger {
+  color: var(--notch-danger-ink);
+}
+.nchoice.is-recommended kbd {
+  color: inherit;
+  background: rgba(0, 0, 0, 0.14);
+  box-shadow: none;
+}
+.nchoice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.nchoice-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.nchoice-rec {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.nchoice-detail {
+  font-size: 11.5px;
+  opacity: 0.78;
+}
+.nsent {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--notch-text-secondary);
 }
 .nq-actions {
   display: flex;
@@ -1128,8 +1188,7 @@ kbd {
       transform 0.18s var(--notch-spring);
   }
 
-  .nq-brief,
-  .nq-means {
+  .nq-brief {
     animation: n-brief-in 0.22s var(--notch-ease) both;
   }
   .nb-working .nb-body {

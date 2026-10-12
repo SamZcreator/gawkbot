@@ -3,7 +3,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import "./notch.css";
 
 import { gang } from "./antics";
-import { BUSY_OFFICE, MACBOOK_NOTCH, NO_NOTCH, QUIET_OFFICE } from "./fixtures";
+import {
+  BUSY_OFFICE,
+  FINISHED_OFFICE,
+  MACBOOK_NOTCH,
+  NO_NOTCH,
+  QUIET_OFFICE,
+} from "./fixtures";
 import { NotchView } from "./NotchView";
 
 const noop = () => {};
@@ -30,6 +36,7 @@ const meta: Meta<typeof NotchView> = {
     onSelect: noop,
     onAnswer: noop,
     onReply: noop,
+    onSend: noop,
     onComposerText: noop,
     onComposerSubmit: noop,
     onComposerCancel: noop,
@@ -100,6 +107,18 @@ export const OpenListening: Story = {
       text: "pause the billing refactor until",
       listening: true,
     },
+  },
+};
+/** A finished turn leads with its suggested replies, the recommended first. */
+export const OpenFinished: Story = {
+  args: { expanded: true, state: FINISHED_OFFICE },
+};
+/** The reply went to a session that has not taken it yet. */
+export const OpenFinishedSent: Story = {
+  args: {
+    expanded: true,
+    state: FINISHED_OFFICE,
+    sentTo: new Set(["finished:codex@2026-10-12T09:00:00Z"]),
   },
 };
 export const OpenQuiet: Story = {

@@ -44,6 +44,13 @@ export interface NotchAgent {
   can_message?: boolean;
 }
 
+/** A reply the office suggests for a card; the first is the recommendation. */
+export interface NotchSuggestion {
+  label: string;
+  /** Exactly what is sent when it is chosen. */
+  reply: string;
+}
+
 export interface NotchOption {
   id: string;
   label: string;
@@ -107,6 +114,8 @@ export interface NotchAttention {
   created_at?: string;
   /** Set on a finished turn. */
   recap?: NotchRecap;
+  /** Replies to choose from, recommended first. Absent until written. */
+  suggestions?: NotchSuggestion[];
 }
 
 export interface NotchState {

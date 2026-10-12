@@ -4,7 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { BotRuntimeContext } from "../lib/botRuntime";
 import { gang } from "./antics";
-import { BUSY_OFFICE, MACBOOK_NOTCH, NO_NOTCH, QUIET_OFFICE } from "./fixtures";
+import {
+  BUSY_OFFICE,
+  FINISHED_OFFICE,
+  MACBOOK_NOTCH,
+  NO_NOTCH,
+  QUIET_OFFICE,
+} from "./fixtures";
 import { NotchBot } from "./NotchBot";
 import { agentsSummary } from "./NotchPanel";
 import { DOT_BAND, dotsThatFit, stripShapeFor } from "./NotchStrip";
@@ -33,6 +39,7 @@ function notchProps(overrides: Partial<NotchViewProps> = {}): NotchViewProps {
     onSelect: vi.fn(),
     onAnswer: vi.fn(),
     onReply: vi.fn(),
+    onSend: vi.fn(),
     onComposerText: vi.fn(),
     onComposerSubmit: vi.fn(),
     onComposerCancel: vi.fn(),
@@ -346,7 +353,9 @@ describe("collapsed notch", () => {
 describe("open notch", () => {
   it("answers in one tap and numbers the answers on the selected question", async () => {
     const props = renderNotch({ expanded: true });
-    const approve = screen.getByRole("button", { name: "1 Approve" });
+    const approve = screen.getByRole("button", {
+      name: "1 Approve Recommended",
+    });
     await userEvent.click(approve);
     expect(props.onAnswer).toHaveBeenCalledWith("req-1", "approve");
   });
@@ -592,6 +601,57 @@ describe("open notch", () => {
     expect(card).toHaveTextContent(
       "Pricing page rebuilt; two plans left to write.",
     );
+  });
+
+  it("leads a finished card with its suggested replies, Reply and Done after", async () => {
+    const props = renderNotch({ expanded: true, state: FINISHED_OFFICE });
+    const card = screen.getByTestId("notch-finished-codex");
+    const list = within(card).getByRole("list", { name: "Choose a reply" });
+    const rows = within(list).getAllByRole("button");
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveClass("is-recommended");
+    expect(rows[0].textContent).toContain("Recommended");
+    expect(rows[0].textContent).toContain(
+      "Add a regression test for the redirect loop, then merge and watch CI.",
+    );
+    expect(rows[1]).not.toHaveClass("is-recommended");
+    expect(within(card).getByRole("button", { name: "Reply" })).toHaveClass(
+      "is-quiet",
+    );
+    expect(within(card).getByRole("button", { name: "Done" })).toHaveClass(
+      "is-quiet",
+    );
+    await userEvent.click(rows[1]);
+    expect(props.onSend).toHaveBeenCalledWith(
+      {
+        kind: "message",
+        slug: "codex",
+        name: "Codex CLI",
+        channel: "codex__human",
+      },
+      "Merge it and watch CI.",
+    );
+  });
+
+  it("puts a question's recommended answer on top of its list", () => {
+    const state: NotchState = {
+      ...BUSY_OFFICE,
+      attention: [
+        { ...BUSY_OFFICE.attention[0], recommended_id: "reject" },
+        ...BUSY_OFFICE.attention.slice(1),
+      ],
+    };
+    renderNotch({ expanded: true, state });
+    const card = screen.getByTestId(
+      `notch-attention-${BUSY_OFFICE.attention[0].id}`,
+    );
+    const rows = within(
+      within(card).getByRole("list", { name: "Choose a reply" }),
+    ).getAllByRole("button");
+    expect(rows.map((r) => r.textContent)).toEqual([
+      "1RejectRecommended",
+      "2Approve",
+    ]);
   });
 
   it("names the way into the full app on every card", () => {
@@ -996,6 +1056,8 @@ describe("open notch", () => {
 
   it("disables answers already in flight", () => {
     renderNotch({ expanded: true, answering: new Set(["req-1"]) });
-    expect(screen.getByRole("button", { name: "1 Approve" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "1 Approve Recommended" }),
+    ).toBeDisabled();
   });
 });

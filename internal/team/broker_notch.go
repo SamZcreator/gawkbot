@@ -160,6 +160,11 @@ type notchAttention struct {
 	CreatedAt     string        `json:"created_at,omitempty"`
 	// Recap is set on a finished turn: what was asked and the reply.
 	Recap *notchRecap `json:"recap,omitempty"`
+	// Suggestions are replies the human could send, the recommended one
+	// first (broker_notch_suggest.go). Absent until written.
+	Suggestions []notchSuggestion `json:"suggestions,omitempty"`
+	// secret marks a private prompt: nothing about it is suggested.
+	secret bool
 }
 
 type notchState struct {
@@ -203,6 +208,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	state, sessions = b.claimNotchSessionRows(state, sessions, now)
 	state = withNotchSessions(state, sessions, now)
 	state = b.withNotchFinished(state)
+	state = b.withNotchSuggestions(state, owner, now)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()
@@ -333,6 +339,7 @@ func (b *Broker) notchStateLocked(now time.Time, defaults runtimeDefaults, owner
 			CreatedAt:     req.CreatedAt,
 		}
 		if req.Secret {
+			item.secret = true
 			// Never surface a secret prompt's options for a one-tap answer;
 			// the full app handles masked input.
 			item.Question = firstNonEmpty(req.Title, "A teammate needs a private answer")

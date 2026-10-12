@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import { RuntimeLogo } from "../components/onboarding/RuntimeLogos";
+import { type Choice, choicesOf } from "./choices";
 import { SHORTCUTS } from "./keys";
 import { NotchBot } from "./NotchBot";
 import { NotchHero } from "./NotchHero";
@@ -45,6 +46,10 @@ export interface PanelProps {
   onSelect: (id: string) => void;
   onAnswer: (requestId: string, choiceId: string) => void;
   onReply: (target: ReplyTarget) => void;
+  /** Sends text straight to target: a suggested reply, chosen. */
+  onSend: (target: ReplyTarget, text: string) => void;
+  /** Finished turns whose reply was sent and waits for the session to take it. */
+  sentTo?: ReadonlySet<string>;
   onComposerText: (text: string) => void;
   onComposerSubmit: () => void;
   onComposerCancel: () => void;
@@ -140,6 +145,55 @@ function channelPath(channel: string | undefined): string {
   return channel ? `/channels/${encodeURIComponent(channel)}` : "/inbox";
 }
 
+/**
+ * What the card offers to send back, as a list: the recommended one on top
+ * and marked, each one tap (or its number key, on the selected question).
+ * An option's meaning shows once its card is open; a suggested reply always
+ * shows its words, since those words are what is sent.
+ */
+function Choices({
+  choices,
+  keys,
+  busy,
+  danger,
+  onChoose,
+}: {
+  choices: Choice[];
+  keys: boolean;
+  busy: boolean;
+  danger?: (c: Choice) => boolean;
+  onChoose: (c: Choice) => void;
+}) {
+  if (choices.length === 0) return null;
+  return (
+    <ul className="nchoices" aria-label="Choose a reply">
+      {choices.map((c, i) => (
+        <li key={c.key}>
+          <button
+            type="button"
+            className={`nchoice${c.recommended ? " is-recommended" : ""}${danger?.(c) ? " is-danger" : ""}`}
+            disabled={busy}
+            onClick={() => onChoose(c)}
+          >
+            {keys && i < 9 ? <kbd>{i + 1}</kbd> : null}
+            <span className="nchoice-text">
+              <span className="nchoice-label">
+                {c.label}
+                {c.recommended ? (
+                  <span className="nchoice-rec">Recommended</span>
+                ) : null}
+              </span>
+              {c.detail && (c.kind === "reply" || keys) ? (
+                <span className="nchoice-detail">{c.detail}</span>
+              ) : null}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Question({
   item,
   agent,
@@ -148,6 +202,7 @@ function Question({
   onSelect,
   onAnswer,
   onReply,
+  onSend,
   onOpen,
 }: {
   item: NotchAttention;
@@ -157,9 +212,15 @@ function Question({
   onSelect: PanelProps["onSelect"];
   onAnswer: PanelProps["onAnswer"];
   onReply: PanelProps["onReply"];
+  onSend: PanelProps["onSend"];
   onOpen: PanelProps["onOpen"];
 }) {
-  const oneTap = (item.options ?? []).filter((o) => !o.requires_text);
+  const choices = choicesOf(item);
+  const to = agent?.name ?? item.from;
+  const choose = (c: Choice) =>
+    c.kind === "option"
+      ? onAnswer(item.id, c.optionId)
+      : onSend({ kind: "answer", requestId: item.id, to }, c.text);
   const tag = agent ? primaryTag(agent) : null;
   const ref = useRef<HTMLElement>(null);
   // Where this card's top was when the pointer entered it. Opening it (and
@@ -180,7 +241,6 @@ function Question({
     if (scroller) scroller.scrollTop += el.getBoundingClientRect().top - anchor;
   }, [selected]);
   const brief = selected ? item.brief : undefined;
-  const described = oneTap.filter((o) => o.description);
   return (
     <article
       ref={ref}
@@ -220,37 +280,24 @@ function Question({
         ) : item.context ? (
           <p className="nq-context">{item.context}</p>
         ) : null}
-        {selected && described.length > 0 ? (
-          <dl className="nq-means">
-            {described.map((o) => (
-              <div key={o.id}>
-                <dt>{o.label}</dt>
-                <dd>{o.description}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
+        <Choices
+          choices={choices}
+          keys={selected}
+          busy={busy}
+          danger={(c) =>
+            c.kind === "option" && /^(reject|deny|decline)/i.test(c.optionId)
+          }
+          onChoose={choose}
+        />
         <div className="nq-actions">
-          {oneTap.map((o, i) => (
-            <button
-              key={o.id}
-              type="button"
-              className={`nbtn${o.id === item.recommended_id ? " is-primary" : /^(reject|deny|decline)/i.test(o.id) ? " is-danger" : ""}`}
-              disabled={busy}
-              onClick={() => onAnswer(item.id, o.id)}
-            >
-              {selected && i < 9 ? <kbd>{i + 1}</kbd> : null}
-              {o.label}
-            </button>
-          ))}
           <button
             type="button"
-            className="nbtn is-quiet"
+            className={`nbtn${choices.length === 0 ? " is-primary" : " is-quiet"}`}
             onClick={() =>
               onReply({
                 kind: "answer",
                 requestId: item.id,
-                to: agent?.name ?? item.from,
+                to,
               })
             }
           >
@@ -289,7 +336,10 @@ function Finished({
   item,
   agent,
   channel,
+  sent,
+  sending,
   onReply,
+  onSend,
   onDone,
   onOpen,
   onShowSource,
@@ -297,7 +347,11 @@ function Finished({
   item: NotchAttention;
   agent: NotchAgent | undefined;
   channel: string | null;
+  /** The reply went and waits for the session to take it. */
+  sent: boolean;
+  sending: boolean;
   onReply: PanelProps["onReply"];
+  onSend: PanelProps["onSend"];
   onDone: PanelProps["onFinishedDone"];
   onOpen: PanelProps["onOpen"];
   onShowSource: PanelProps["onShowSource"];
@@ -308,6 +362,10 @@ function Finished({
   const recap = item.recap;
   const when = item.created_at ? sinceShort(item.created_at, Date.now()) : "";
   const reply = recap?.reply || item.question;
+  const choices = channel && !sent ? choicesOf(item) : [];
+  const target: ReplyTarget | null = channel
+    ? { kind: "message", slug: item.from, name, channel }
+    : null;
   return (
     <article
       aria-label={`${name} finished`}
@@ -377,14 +435,25 @@ function Finished({
             </button>
           ) : null}
         </section>
+        {sent ? (
+          <p className="nsent" role="status">
+            Sent. It goes in as soon as {name} is waiting for you.
+          </p>
+        ) : null}
+        <Choices
+          choices={choices}
+          keys={false}
+          busy={sending}
+          onChoose={(c) => {
+            if (target && c.kind === "reply") onSend(target, c.text);
+          }}
+        />
         <div className="nq-actions">
-          {channel ? (
+          {target && !sent ? (
             <button
               type="button"
-              className="nbtn is-primary"
-              onClick={() =>
-                onReply({ kind: "message", slug: item.from, name, channel })
-              }
+              className={`nbtn${choices.length === 0 ? " is-primary" : " is-quiet"}`}
+              onClick={() => onReply(target)}
             >
               Reply
             </button>
@@ -841,6 +910,7 @@ export function NotchPanel(props: PanelProps) {
                 onSelect={props.onSelect}
                 onAnswer={props.onAnswer}
                 onReply={props.onReply}
+                onSend={props.onSend}
                 onOpen={props.onOpen}
               />
             ))}
@@ -852,7 +922,10 @@ export function NotchPanel(props: PanelProps) {
                   item={item}
                   agent={agent}
                   channel={agent ? agentChannel(agent, state) : null}
+                  sent={props.sentTo?.has(item.id) ?? false}
+                  sending={props.sending}
                   onReply={props.onReply}
+                  onSend={props.onSend}
                   onDone={props.onFinishedDone}
                   onShowSource={props.onShowSource}
                   onOpen={props.onOpen}

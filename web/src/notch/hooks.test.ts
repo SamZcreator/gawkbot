@@ -15,6 +15,7 @@ function handlers(over: Partial<KeyHandlers> = {}): KeyHandlers {
     composer: null,
     select: vi.fn(),
     choose: vi.fn(),
+    suggest: vi.fn(),
     reply: () => ({ kind: "answer", requestId: "req-1", to: "Gemini CLI" }),
     lead: () => ({
       kind: "message",
