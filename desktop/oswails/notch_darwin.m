@@ -15,6 +15,7 @@
 // Macs without a notch get a pill centred at the top of the screen instead.
 
 #import <AVFoundation/AVFoundation.h>
+#import <ApplicationServices/ApplicationServices.h>
 #import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <Speech/Speech.h>
@@ -992,4 +993,49 @@ void GawkNotchStart(const char *officeURL) {
 		gNotch.officeURL = url;
 		[gNotch start];
 	});
+}
+
+#pragma mark Permissions for the person's Mac as a computer
+
+// The embedded computer-use driver (host_computer_darwin.go) inherits the
+// grants macOS gives THIS app and never prompts on its own, so the prompts
+// live here. Both are plain system dialogs; nothing is captured or driven
+// by asking. The read-only checks never prompt.
+
+int GawkAccessibilityTrusted(void) {
+	return AXIsProcessTrusted() ? 1 : 0;
+}
+
+int GawkScreenCaptureGranted(void) {
+	if (@available(macOS 10.15, *)) {
+		return CGPreflightScreenCaptureAccess() ? 1 : 0;
+	}
+	return 1;
+}
+
+void GawkRequestAccessibility(void) {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		NSDictionary *options = @{(__bridge NSString *)kAXTrustedCheckOptionPrompt : @YES};
+		AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);
+	});
+}
+
+void GawkRequestScreenCapture(void) {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (@available(macOS 10.15, *)) {
+			CGRequestScreenCaptureAccess();
+		}
+	});
+}
+
+// GawkFrontmostApp names the app in front as "pid\tbundle id\tname", or
+// "" when none. No permission is involved; the caller frees the string.
+char *GawkFrontmostApp(void) {
+	NSRunningApplication *app = [[NSWorkspace sharedWorkspace] frontmostApplication];
+	if (app == nil) {
+		return strdup("");
+	}
+	NSString *line = [NSString stringWithFormat:@"%d\t%@\t%@", app.processIdentifier,
+	                  app.bundleIdentifier ?: @"", app.localizedName ?: @""];
+	return strdup(line.UTF8String);
 }

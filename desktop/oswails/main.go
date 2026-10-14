@@ -19,6 +19,8 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/nex-crm/wuphf/internal/team"
 	"github.com/wailsapp/wails/v2"
@@ -56,6 +58,25 @@ func freePort() (int, error) {
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
+// waitForPort polls a loopback address until it accepts a connection or
+// the timeout passes.
+func waitForPort(addr string, timeout time.Duration) bool {
+	dialer := &net.Dialer{Timeout: 250 * time.Millisecond}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	for {
+		if conn, err := dialer.DialContext(ctx, "tcp", addr); err == nil {
+			_ = conn.Close()
+			return true
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
 // openInMainWindow brings the main window forward at an in-app path. The
 // URL is absolute on the office origin because the window may still be on
 // the wails:// bootstrap page, and it is JSON-encoded into the script so the
@@ -75,6 +96,10 @@ func main() {
 	// (the same office an unqualified `wuphf` CLI uses) — WUPHF_RUNTIME_HOME is
 	// intentionally NOT overridden here.
 	target, attached := team.RunningOfficeURL()
+	// The person's Mac as a computer, started once the in-process broker
+	// answers (host_computer_darwin.go). Nil until then and off macOS.
+	var hostMu sync.Mutex
+	var host *macHost
 	if attached {
 		// A broker is already serving this workspace — attach the window to it
 		// instead of booting a second broker (which killStaleBroker would race).
@@ -89,22 +114,42 @@ func main() {
 			os.Exit(1)
 		}
 		target = fmt.Sprintf("http://127.0.0.1:%d", port)
+		launcher, err := team.NewLauncher("")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "launcher:", err)
+			os.Exit(1)
+		}
 		go func() {
-			launcher, err := team.NewLauncher("")
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "launcher:", err)
-				os.Exit(1)
-			}
 			launcher.SetNoOpen(true)
 			if err := launcher.PreflightWeb(); err != nil {
 				fmt.Fprintln(os.Stderr, "preflight:", err)
 				os.Exit(1)
 			}
+			// LaunchWeb serves for the life of the process and never returns.
 			if err := launcher.LaunchWeb(port); err != nil {
 				fmt.Fprintln(os.Stderr, "launch:", err)
 				os.Exit(1)
 			}
 		}()
+		// The person's Mac joins once the office answers: the broker exists
+		// from then on, and the driver must be our child (not the CLI's).
+		go func() {
+			if !waitForPort(fmt.Sprintf("127.0.0.1:%d", port), 60*time.Second) {
+				fmt.Fprintln(os.Stderr, "host computer: the office never answered; not starting the driver")
+				return
+			}
+			h := startHostComputer(launcher.Broker(), os.Stderr)
+			hostMu.Lock()
+			host = h
+			hostMu.Unlock()
+		}()
+	}
+
+	// Attached to an office another process serves, the driver's grants
+	// would belong to that process, so the Mac is offered only when the
+	// broker is ours.
+	if attached {
+		fmt.Fprintln(os.Stderr, "host computer: attached to a running office; open gawkbot on its own to use this Mac")
 	}
 
 	var appCtx context.Context
@@ -129,6 +174,10 @@ func main() {
 			})
 		},
 		OnShutdown: func(context.Context) {
+			hostMu.Lock()
+			h := host
+			hostMu.Unlock()
+			h.Stop()
 			// If we booted the broker in-process (rather than attaching to a
 			// running peer), clear the office.json sidecar so the next launch
 			// doesn't probe a now-dead URL. The broker dies with the process.

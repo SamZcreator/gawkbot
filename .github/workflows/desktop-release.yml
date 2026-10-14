@@ -160,6 +160,12 @@ jobs:
           cd desktop/oswails
           wails build -platform darwin/universal -s -skipbindings -tags desktop
 
+      # The computer-use driver the app spawns for bots' hands on the Mac
+      # (internal/hostcomputer). Pinned and checksummed; signed with the app
+      # below so it inherits the app's permission identity.
+      - name: Bundle the computer-use driver
+        run: bash scripts/fetch-cua-driver-host.sh desktop/oswails/build/bin/gawkbot.app
+
       - name: Import Developer ID certificate
         env:
           CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}

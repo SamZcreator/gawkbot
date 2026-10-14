@@ -37,6 +37,10 @@ type Watcher struct {
 	// accessibility tree. That read needs Accessibility and walks one
 	// window, so it runs only on a change of window, not every tick.
 	ReadURL bool
+	// Frontmost, when set, names the app in front. The desktop shell asks
+	// the system directly (no permission, exact); without it the driver's
+	// own "active" flag is used, which some builds leave unset.
+	Frontmost func() (App, bool)
 
 	mu       sync.Mutex
 	active   int
@@ -107,15 +111,19 @@ func (w *Watcher) loop(ctx context.Context) {
 
 // Refresh takes one reading now and remembers it.
 func (w *Watcher) Refresh(ctx context.Context) (ScreenContext, error) {
-	apps, err := ListApps(ctx, w.client)
-	if err != nil {
-		return ScreenContext{}, err
-	}
 	var front App
-	for _, a := range apps {
-		if a.Active && a.Running {
-			front = a
-			break
+	if w.Frontmost != nil {
+		front, _ = w.Frontmost()
+	} else {
+		apps, err := ListApps(ctx, w.client)
+		if err != nil {
+			return ScreenContext{}, err
+		}
+		for _, a := range apps {
+			if a.Active && a.Running {
+				front = a
+				break
+			}
 		}
 	}
 	sc := ScreenContext{App: front.Name, BundleID: front.BundleID, PID: front.PID, At: time.Now()}

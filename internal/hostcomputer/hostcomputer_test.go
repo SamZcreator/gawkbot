@@ -163,6 +163,33 @@ func TestWatcherReadsTheFrontAppWindowAndBrowserHost(t *testing.T) {
 	}
 }
 
+func TestWatcherPrefersTheShellsFrontmostApp(t *testing.T) {
+	f := &fakeDriver{answers: map[string]Result{
+		"list_apps":    {Structured: structured(t, map[string]any{"apps": []App{{Name: "Wrong", BundleID: "x", PID: 1, Running: true, Active: true}}})},
+		"list_windows": {Structured: structured(t, map[string]any{"windows": []map[string]any{{"window_id": 9, "pid": 77, "app_name": "Notes", "title": "Groceries", "z_index": 1, "is_on_screen": true}}})},
+	}}
+	w := NewWatcher(f)
+	w.Frontmost = func() (App, bool) {
+		return App{Name: "Notes", BundleID: "com.apple.Notes", PID: 77, Running: true}, true
+	}
+	w.SetActive(true)
+	defer w.SetActive(false)
+	sc, err := w.Refresh(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sc.App != "Notes" || sc.PID != 77 || sc.WindowTitle != "Groceries" {
+		t.Fatalf("context = %+v", sc)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.calls {
+		if c == "list_apps" {
+			t.Fatal("asked the driver for apps when the shell already knew")
+		}
+	}
+}
+
 func TestWatcherForgetsEverythingWhenNobodyWatches(t *testing.T) {
 	f := &fakeDriver{answers: map[string]Result{
 		"list_apps":    {Structured: structured(t, map[string]any{"apps": []App{{Name: "Notes", BundleID: "com.apple.Notes", PID: 3, Running: true, Active: true}}})},

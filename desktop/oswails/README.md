@@ -89,6 +89,21 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
   10.15+, the `audio-input` entitlement, and the microphone and speech
   usage strings in `build/darwin/Info.plist`.
 
+- **Your Mac as a computer**: the app bundles the open-source Cua Driver
+  (`Contents/Helpers/cua-driver`, pinned in `internal/hostcomputer/version.go`,
+  put there by `scripts/fetch-cua-driver-host.sh` after `wails build`) and
+  starts it in its embedded mode from `host_computer_darwin.go`. Spawned by
+  the app itself, the daemon inherits the Accessibility and Screen Recording
+  grants macOS gives gawkbot and never prompts on its own; the prompts are
+  the app's (`GawkRequestAccessibility`, `GawkRequestScreenCapture` in
+  `notch_darwin.m`) and the notch asks for them only when you first use a
+  feature that needs one. With the daemon up, the owner's notch state
+  carries `permissions`, `capabilities`, and, only while the notch is open,
+  `screen` (the app and window in front of you, read a second at a time and
+  never stored). Attached to an office served by the CLI the Mac is not
+  offered: the grants would belong to the wrong process. Developers without
+  a packaged build point `WUPHF_CUA_DRIVER` at a driver binary.
+
 Data is one poll of `GET /notch/state` (`internal/team/broker_notch.go`).
 The page↔native contract is in `web/src/notch/bridge.ts`. The panel refuses
 navigation off the office origin, and "open in app" accepts only in-app paths
