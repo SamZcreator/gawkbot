@@ -187,6 +187,13 @@ type notchState struct {
 	// attention (it opening by itself, a peek, a fly-in, chatter). The
 	// notch reads it on every poll, so a change in Settings needs no restart.
 	JumpOut bool `json:"jump_out"`
+	// Screen is what the owner has in front of them, only while the notch
+	// says it is open (broker_host_computer.go). Owner only, never stored.
+	Screen *notchScreen `json:"screen,omitempty"`
+	// Permissions are the macOS grants the app holds. Owner only.
+	Permissions *notchPermissions `json:"permissions,omitempty"`
+	// Capabilities say which features the notch may offer. Owner only.
+	Capabilities *notchCapabilities `json:"capabilities,omitempty"`
 }
 
 func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
@@ -212,6 +219,9 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	state = withNotchSessions(state, sessions, now)
 	state = b.withNotchFinished(state)
 	state = b.withNotchSuggestions(state, owner, leadKind, now)
+	// open=1 is the notch saying it is on screen: the only time the owner's
+	// screen context is read, and only for as long as the polls keep coming.
+	state = b.withNotchHost(r.Context(), state, owner, now, r.URL.Query().Get("open") == "1")
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()
