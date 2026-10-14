@@ -120,6 +120,30 @@ export interface NotchAttention {
   suggestions_pending?: boolean;
 }
 
+/** What the owner has in front of them, only while the notch is open. */
+export interface NotchScreen {
+  app: string;
+  bundle_id?: string;
+  window_title?: string;
+  url?: string;
+  domain?: string;
+}
+
+/** The macOS grants the app holds. */
+export interface NotchPermissions {
+  accessibility: boolean;
+  screen_recording: boolean;
+}
+
+/** Which features the notch may offer right now. */
+export interface NotchCapabilities {
+  voice_realtime: boolean;
+  screen_context: boolean;
+  screen_capture: boolean;
+  pointer: boolean;
+  mac_computer: boolean;
+}
+
 export interface NotchState {
   lead?: string;
   lead_name?: string;
@@ -145,6 +169,16 @@ export interface NotchState {
    * send it means on.
    */
   jump_out?: boolean;
+  /**
+   * The app and window in front of the owner, read a second at a time only
+   * while the notch says it is open (the poll's open=1), never stored.
+   * Owner only, Mac app only.
+   */
+  screen?: NotchScreen;
+  /** The macOS grants the app holds. Owner only, Mac app only. */
+  permissions?: NotchPermissions;
+  /** What the notch may offer. Owner only. */
+  capabilities?: NotchCapabilities;
 }
 
 /** Physical notch geometry, in CSS px, handed over by the native shell. */

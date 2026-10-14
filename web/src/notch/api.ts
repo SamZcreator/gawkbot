@@ -3,8 +3,30 @@ import type { NotchState } from "./types";
 
 export const NOTCH_QUERY_KEY = ["notch-state"] as const;
 
-export function getNotchState() {
-  return get<NotchState>("/notch/state");
+/**
+ * The state poll. While the panel is open it says so (open=1): that is the
+ * only time the broker reads what is in front of the owner, and it stops
+ * as soon as the open polls stop.
+ */
+export function notchStatePath(open: boolean) {
+  return open ? "/notch/state?open=1" : "/notch/state";
+}
+
+export function getNotchState(open = false) {
+  return get<NotchState>(notchStatePath(open));
+}
+
+/** One picture of the display, because the person asked. Owner only. */
+export function captureScreen() {
+  return post<{ data_url: string; width: number; height: number }>(
+    "/notch/screen/capture",
+    {},
+  );
+}
+
+/** Asks macOS for a grant through the app (the driver never prompts). */
+export function requestPermission(kind: "accessibility" | "screen_recording") {
+  return post("/notch/permissions/request", { kind });
 }
 
 /** Answers a pending request with one of its options (same path as the Inbox). */

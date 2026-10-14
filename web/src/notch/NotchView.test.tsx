@@ -20,6 +20,33 @@ import type { NotchAgent, NotchState } from "./types";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+describe("what the notch sees", () => {
+  it("names the app in front while open, and nothing when the broker sent none", () => {
+    render(
+      <NotchView
+        {...notchProps({
+          expanded: true,
+          state: {
+            ...QUIET_OFFICE,
+            screen: {
+              app: "Finder",
+              bundle_id: "com.apple.finder",
+              window_title: "Downloads",
+            },
+          },
+        })}
+      />,
+    );
+    expect(screen.getByText("Seeing Finder")).toBeInTheDocument();
+  });
+  it("shows no seeing line without a screen", () => {
+    render(
+      <NotchView {...notchProps({ expanded: true, state: QUIET_OFFICE })} />,
+    );
+    expect(screen.queryByText(/^Seeing /)).toBeNull();
+  });
+});
+
 function notchProps(overrides: Partial<NotchViewProps> = {}): NotchViewProps {
   return {
     state: BUSY_OFFICE,

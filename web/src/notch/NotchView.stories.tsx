@@ -124,6 +124,29 @@ export const OpenFinishedSent: Story = {
 export const OpenQuiet: Story = {
   args: { expanded: true, state: QUIET_OFFICE, gang: [] },
 };
+/** The Mac app, open: the notch names the app in front of you. */
+export const OpenSeeing: Story = {
+  args: {
+    expanded: true,
+    gang: [],
+    state: {
+      ...QUIET_OFFICE,
+      screen: {
+        app: "Finder",
+        bundle_id: "com.apple.finder",
+        window_title: "Downloads",
+      },
+      permissions: { accessibility: false, screen_recording: false },
+      capabilities: {
+        voice_realtime: false,
+        screen_context: true,
+        screen_capture: false,
+        pointer: false,
+        mac_computer: false,
+      },
+    },
+  },
+};
 export const NoNotchMac: Story = { args: { geometry: NO_NOTCH } };
 export const Connecting: Story = {
   args: { state: null, expanded: true, gang: [] },

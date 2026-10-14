@@ -910,6 +910,14 @@ export function NotchPanel(props: PanelProps) {
         <div className="nhead-text">
           <small>{leadName}</small>
           {state.headline}
+          {state.screen?.app ? (
+            <span
+              className="nhead-seeing"
+              title="What is in front of you, read only while the notch is open and never kept."
+            >
+              Seeing {state.screen.app}
+            </span>
+          ) : null}
         </div>
         <button
           type="button"

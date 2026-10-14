@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { boredom as boredomOf, gang as gangOf } from "./antics";
@@ -93,9 +93,13 @@ export function NotchApp({
   const [soundOn, setSoundOn] = useState(soundEnabled);
   const [agentsOpen, setAgentsOpen] = useState(false);
 
+  // The poll tells the broker when the panel is open, through a ref so the
+  // query key (and its data) stays put across open and close.
+  const openRef = useRef(expanded);
+  openRef.current = expanded;
   const query = useQuery({
     queryKey: NOTCH_QUERY_KEY,
-    queryFn: getNotchState,
+    queryFn: () => getNotchState(openRef.current),
     refetchInterval: POLL_MS,
     refetchIntervalInBackground: true,
   });
