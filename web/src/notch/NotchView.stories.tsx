@@ -124,6 +124,25 @@ export const OpenFinishedSent: Story = {
 export const OpenQuiet: Story = {
   args: { expanded: true, state: QUIET_OFFICE, gang: [] },
 };
+/** A bot is set to run on this Mac and the grants are not there yet. */
+export const OpenNeedsPermissions: Story = {
+  args: {
+    expanded: true,
+    gang: [],
+    state: {
+      ...QUIET_OFFICE,
+      host_wanted: true,
+      permissions: { accessibility: true, screen_recording: false },
+      capabilities: {
+        voice_realtime: false,
+        screen_context: true,
+        screen_capture: false,
+        pointer: true,
+        mac_computer: false,
+      },
+    },
+  },
+};
 /** The Mac app, open: the notch names the app in front of you. */
 export const OpenSeeing: Story = {
   args: {

@@ -197,6 +197,9 @@ type notchState struct {
 	// Overlay is the drawing waiting for the Mac app's screen, if any
 	// (broker_notch_overlay.go). Owner only.
 	Overlay *notchOverlay `json:"overlay,omitempty"`
+	// HostWanted is true when a bot is set to run on this Mac, so the notch
+	// asks for the grants it needs and not before. Owner only.
+	HostWanted bool `json:"host_wanted,omitempty"`
 }
 
 func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
@@ -226,6 +229,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	// screen context is read, and only for as long as the polls keep coming.
 	state = b.withNotchHost(r.Context(), state, owner, now, r.URL.Query().Get("open") == "1")
 	state = b.withNotchConsents(state, owner)
+	state = b.withNotchHostWanted(state, owner)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()

@@ -238,3 +238,21 @@ func TestNotchPermissionRequestGoesToTheApp(t *testing.T) {
 		t.Fatalf("asked = %v", host.asked)
 	}
 }
+
+func TestNotchStateAsksForGrantsOnlyWhenABotRunsOnThisMac(t *testing.T) {
+	b := newTestBroker(t)
+	b.token = "owner-token"
+	b.SetHostComputer(newFakeMacHost(hostcomputer.Permissions{}))
+	if s := notchStateAs(t, b, "owner-token", "?open=1"); s.HostWanted {
+		t.Fatal("no bot runs on this Mac, yet the notch wants grants")
+	}
+	b.mu.Lock()
+	b.members = append(b.members, officeMember{Slug: "ops", Name: "Ops", Computer: computerMac})
+	b.mu.Unlock()
+	if s := notchStateAs(t, b, "owner-token", "?open=1"); !s.HostWanted {
+		t.Fatal("a bot on this Mac did not make the notch ask for grants")
+	}
+	if s := notchStateAs(t, b, "", "?open=1"); s.HostWanted {
+		t.Fatal("a joined human was asked for the owner's grants")
+	}
+}

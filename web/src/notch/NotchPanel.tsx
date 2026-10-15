@@ -13,6 +13,7 @@ import type { LessonStep } from "./lesson";
 import { NotchBot } from "./NotchBot";
 import { NotchHero } from "./NotchHero";
 import { LessonCard } from "./NotchLesson";
+import { NotchPermissionCard } from "./NotchPermissionCard";
 import { byNeed, finishedSlugs } from "./order";
 import type {
   NotchAgent,
@@ -75,6 +76,8 @@ export interface PanelProps {
   hotkey?: NotchHotkey;
   /** The first-run tour (lesson.ts); absent or "done" when it is over. */
   lessonStep?: LessonStep;
+  /** Asks macOS for a grant a bot on this Mac needs (Mac app only). */
+  onPermission?: (kind: "accessibility" | "screen_recording") => void;
   onLessonPracticed?: () => void;
   onLessonSkip?: () => void;
 }
@@ -946,6 +949,12 @@ export function NotchPanel(props: PanelProps) {
           onPracticed={() => props.onLessonPracticed?.()}
           onSkip={() => props.onLessonSkip?.()}
         />
+        {state.host_wanted && state.permissions && props.onPermission ? (
+          <NotchPermissionCard
+            permissions={state.permissions}
+            onRequest={props.onPermission}
+          />
+        ) : null}
         {needsYou > 0 ? (
           <section aria-label="Needs you">
             <h3 className="nsection">Needs you · {needsYou}</h3>

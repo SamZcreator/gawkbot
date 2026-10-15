@@ -8,6 +8,7 @@ import {
   getNotchState,
   markFinishedSeen,
   NOTCH_QUERY_KEY,
+  requestPermission,
   sendMessage,
   showSession,
 } from "./api";
@@ -410,6 +411,7 @@ export function NotchApp({
         line={line}
         peeker={peeker}
         lessonStep={lessonStep}
+        onPermission={(kind) => void requestPermission(kind)}
         onLessonPracticed={() => lessonEvent("practiced")}
         onLessonSkip={() => lessonEvent("skipped")}
         arrival={arrival}

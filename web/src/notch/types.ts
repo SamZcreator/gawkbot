@@ -216,6 +216,8 @@ export interface NotchState {
   capabilities?: NotchCapabilities;
   /** A drawing waiting for the Mac app's screen. Owner only. */
   overlay?: NotchOverlay;
+  /** A bot is set to run on this Mac, so its grants are worth asking for. */
+  host_wanted?: boolean;
 }
 
 /** Physical notch geometry, in CSS px, handed over by the native shell. */

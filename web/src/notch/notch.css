@@ -1722,3 +1722,35 @@ kbd {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* The permissions card: two grants, asked for only when a bot needs them. */
+.nperm-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.nperm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nperm-name {
+  display: grid;
+  font-size: 13px;
+  font-weight: 600;
+}
+.nperm-name small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--notch-text-tertiary);
+}
+.nperm-ok {
+  color: var(--notch-accent);
+  font-weight: 700;
+}
+.nperm-row.is-granted .nperm-name {
+  color: var(--notch-text-tertiary);
+}

@@ -95,6 +95,22 @@ func (b *Broker) decideConsent(slug, decision string) (computer.Snapshot, error)
 	return b.computers().control.Decide(slug, decision), nil
 }
 
+// withNotchHostWanted says whether any bot is set to run on this Mac.
+func (b *Broker) withNotchHostWanted(state notchState, owner bool) notchState {
+	if !owner {
+		return state
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, m := range b.members {
+		if strings.TrimSpace(m.Computer) == computerMac {
+			state.HostWanted = true
+			break
+		}
+	}
+	return state
+}
+
 // withNotchConsents puts a card at the front of Needs-you for every bot on
 // the Mac waiting to be allowed. The card answers through
 // POST /computer/{slug}/control, not /requests/answer.
