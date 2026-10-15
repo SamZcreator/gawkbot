@@ -145,11 +145,16 @@ func main() {
 		}()
 	}
 
-	// Attached to an office another process serves, the driver's grants
-	// would belong to that process, so the Mac is offered only when the
-	// broker is ours.
+	// Attached to an office another process serves (the CLI's), the driver
+	// is still this app's to spawn, since macOS ties its grants to the
+	// spawning app; the running office is told where the socket is.
 	if attached {
-		fmt.Fprintln(os.Stderr, "host computer: attached to a running office; open gawkbot on its own to use this Mac")
+		go func() {
+			h := attachHostComputer(target, os.Stderr)
+			hostMu.Lock()
+			host = h
+			hostMu.Unlock()
+		}()
 	}
 
 	var appCtx context.Context

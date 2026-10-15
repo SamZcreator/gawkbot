@@ -39,7 +39,9 @@ export type NativeMessage =
   | { type: "voice"; action: "start" | "stop" }
   | { type: "sound"; on: boolean }
   | { type: "stage"; height: number }
-  | { type: "ears"; width: number; band: number };
+  | { type: "ears"; width: number; band: number }
+  /** Ask macOS for a grant; the app shows the prompt, the driver never does. */
+  | { type: "permission"; kind: "accessibility" | "screen_recording" };
 
 interface WebkitHandlers {
   webkit?: {

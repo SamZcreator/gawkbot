@@ -664,6 +664,9 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 	self.peekUntil = [NSDate dateWithTimeIntervalSinceNow:kPeekDuration];
 }
 
+void GawkRequestAccessibility(void);
+void GawkRequestScreenCapture(void);
+
 #pragma mark Page → native
 
 - (void)userContentController:(WKUserContentController *)controller
@@ -708,6 +711,15 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 			[self startVoice];
 		} else {
 			[self stopVoice];
+		}
+	} else if ([type isEqualToString:@"permission"]) {
+		// A macOS grant the notch asked for. The prompt is this app's to show
+		// whether the office is ours or attached (the driver never prompts).
+		NSString *kind = [body[@"kind"] isKindOfClass:[NSString class]] ? body[@"kind"] : @"";
+		if ([kind isEqualToString:@"accessibility"]) {
+			GawkRequestAccessibility();
+		} else if ([kind isEqualToString:@"screen_recording"]) {
+			GawkRequestScreenCapture();
 		}
 	} else if ([type isEqualToString:@"collapse"]) {
 		self.pinned = NO;

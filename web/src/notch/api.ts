@@ -1,4 +1,5 @@
 import { get, post } from "../api/client";
+import { isInMacApp, postNative } from "./bridge";
 import type { NotchState } from "./types";
 
 export const NOTCH_QUERY_KEY = ["notch-state"] as const;
@@ -24,9 +25,17 @@ export function captureScreen() {
   );
 }
 
-/** Asks macOS for a grant through the app (the driver never prompts). */
+/**
+ * Asks macOS for a grant. Inside the Mac app the prompt is the app's own,
+ * whichever process serves the office; elsewhere the broker is asked, and
+ * answers only when it runs inside the app.
+ */
 export function requestPermission(kind: "accessibility" | "screen_recording") {
-  return post("/notch/permissions/request", { kind });
+  if (isInMacApp()) {
+    postNative({ type: "permission", kind });
+    return Promise.resolve();
+  }
+  return post("/notch/permissions/request", { kind }).then(() => undefined);
 }
 
 /** Answers a pending request with one of its options (same path as the Inbox). */

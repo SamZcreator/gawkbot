@@ -13,4 +13,6 @@ type macHost struct{}
 
 func startHostComputer(*team.Broker, io.Writer) *macHost { return nil }
 
+func attachHostComputer(string, io.Writer) *macHost { return nil }
+
 func (h *macHost) Stop() {}

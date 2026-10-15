@@ -100,9 +100,14 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
   feature that needs one. With the daemon up, the owner's notch state
   carries `permissions`, `capabilities`, and, only while the notch is open,
   `screen` (the app and window in front of you, read a second at a time and
-  never stored). Attached to an office served by the CLI the Mac is not
-  offered: the grants would belong to the wrong process. Developers without
-  a packaged build point `WUPHF_CUA_DRIVER` at a driver binary.
+  never stored). Attached to an office served by the CLI (`npx gawkbot` in a
+  terminal), the app still spawns the driver, since the grants are the app's,
+  and registers its socket with the running office (`POST
+  /host-computer/attach`); the broker then reaches the daemon through the
+  driver's own proxy and asks Launch Services which app is in front, and the
+  notch asks the app itself for permissions through the `permission` bridge
+  message. Developers without a packaged build point `WUPHF_CUA_DRIVER` at a
+  driver binary.
 
 Data is one poll of `GET /notch/state` (`internal/team/broker_notch.go`).
 The page↔native contract is in `web/src/notch/bridge.ts`. The panel refuses

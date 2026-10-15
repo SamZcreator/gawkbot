@@ -216,7 +216,8 @@ var urlInText = regexp.MustCompile(`https?://[^\s"'<>)\]]+`)
 // returns "".
 func AddressBarURL(ctx context.Context, c Caller, pid, windowID int) (string, error) {
 	res, err := c.Call(ctx, "get_window_state", map[string]any{
-		"pid": pid, "window_id": windowID, "capture_mode": "ax", "query": "address", "max_elements": 400, "max_depth": 12,
+		"pid": pid, "window_id": windowID, "capture_mode": "ax", "tree_format": "both", "include_screenshot": false,
+		"query": "address", "max_elements": 400, "max_depth": 12,
 	})
 	if err != nil {
 		return "", err

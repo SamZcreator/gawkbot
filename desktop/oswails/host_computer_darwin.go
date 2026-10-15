@@ -14,10 +14,13 @@ void GawkRequestScreenCapture(void);
 import "C"
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,6 +52,8 @@ type macHost struct {
 	daemon  *hostcomputer.Daemon
 	client  *hostcomputer.Client
 	watcher *hostcomputer.Watcher
+	// attachedTo is the office this app attached to, when not its own.
+	attachedTo string
 
 	mu      sync.Mutex
 	problem string
@@ -82,19 +87,14 @@ func driverHome() string {
 	return filepath.Join(dir, "gawkbot", "cua-driver")
 }
 
-// startHostComputer launches the daemon and installs it on the broker. A
-// missing or failing driver is reported, not fatal: the office works
-// without hands on the Mac.
-func startHostComputer(broker *team.Broker, log io.Writer) *macHost {
-	if broker == nil {
-		return nil
-	}
+// newMacHost launches the daemon. A missing or failing driver is
+// reported, not fatal: the office works without hands on the Mac.
+func newMacHost(log io.Writer) *macHost {
 	h := &macHost{}
 	binary, err := driverBinary()
 	if err != nil {
 		h.setProblem(err.Error())
 		fmt.Fprintln(log, "host computer:", err)
-		broker.SetHostComputer(h)
 		return h
 	}
 	socket := hostcomputer.SocketPath()
@@ -116,8 +116,75 @@ func startHostComputer(broker *team.Broker, log io.Writer) *macHost {
 		h.setProblem(err.Error())
 		fmt.Fprintln(log, "host computer:", err)
 	}
+	return h
+}
+
+// startHostComputer is the in-process case: the office is ours, so the
+// host is installed on the broker directly.
+func startHostComputer(broker *team.Broker, log io.Writer) *macHost {
+	if broker == nil {
+		return nil
+	}
+	h := newMacHost(log)
 	broker.SetHostComputer(h)
 	return h
+}
+
+// attachHostComputer is the attached case: an office another process
+// serves (the CLI's). The driver is still ours to spawn, since the grants
+// are this app's, and the running broker is told where its socket is,
+// through the web proxy, which signs loopback callers as the owner. The
+// embedding contract allows exactly this split: the host spawns the
+// daemon, another process connects a proxy to the host-owned socket.
+func attachHostComputer(officeURL string, log io.Writer) *macHost {
+	h := newMacHost(log)
+	if h.daemon == nil || !h.daemon.Running() {
+		return h
+	}
+	body, err := json.Marshal(map[string]string{"binary": h.daemon.Binary, "socket": h.daemon.Socket, "bundle_id": hostBundleID})
+	if err != nil {
+		h.setProblem(err.Error())
+		return h
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, attachURL(officeURL), bytes.NewReader(body))
+	if err != nil {
+		h.setProblem(err.Error())
+		return h
+	}
+	req.Header.Set("Content-Type", "application/json")
+	res, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err != nil {
+		h.setProblem("could not tell the office about the driver: " + err.Error())
+		fmt.Fprintln(log, "host computer:", h.problemText(""))
+		return h
+	}
+	_ = res.Body.Close()
+	if res.StatusCode/100 != 2 {
+		h.setProblem(fmt.Sprintf("the office refused the driver (%d)", res.StatusCode))
+		fmt.Fprintln(log, "host computer:", h.problemText(""))
+		return h
+	}
+	h.attachedTo = officeURL
+	fmt.Fprintln(log, "host computer: attached the driver to the office at", officeURL)
+	return h
+}
+
+func attachURL(officeURL string) string {
+	return strings.TrimRight(officeURL, "/") + "/api/host-computer/attach"
+}
+
+// detach tells the office the driver is going away with the app.
+func (h *macHost) detach() {
+	if h == nil || h.attachedTo == "" {
+		return
+	}
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodDelete, attachURL(h.attachedTo), nil)
+	if err != nil {
+		return
+	}
+	if res, err := (&http.Client{Timeout: 3 * time.Second}).Do(req); err == nil {
+		_ = res.Body.Close()
+	}
 }
 
 func (h *macHost) setProblem(p string) {
@@ -189,6 +256,7 @@ func (h *macHost) Stop() {
 	if h == nil {
 		return
 	}
+	h.detach()
 	if h.client != nil {
 		h.client.Close()
 	}

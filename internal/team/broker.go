@@ -723,6 +723,8 @@ func (b *Broker) StartOnPort(port int) error {
 	// The owner's screen, on request only (broker_host_computer.go).
 	mux.HandleFunc("/notch/screen/capture", b.requireAuth(b.handleNotchScreenCapture))
 	mux.HandleFunc("/notch/permissions/request", b.requireAuth(b.handleNotchPermissionRequest))
+	// The Mac app attached to this office registers its driver here.
+	mux.HandleFunc("/host-computer/attach", b.requireAuth(b.handleHostComputerAttach))
 	mux.HandleFunc("/channels", b.requireAuth(b.handleChannels))
 	mux.HandleFunc("/channels/dm", b.requireAuth(b.handleCreateDM))
 	mux.HandleFunc("/channels/generate", b.requireAuth(b.handleGenerateChannel))
