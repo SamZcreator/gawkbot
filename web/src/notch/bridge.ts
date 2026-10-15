@@ -26,6 +26,7 @@ export const EXPANDED_HEIGHT = 820;
 //
 // Native → page, via evaluateJavaScript:
 //   window.gawkNotch.setExpanded(boolean)
+//   window.gawkNotch.setSize(width, height)   the open panel's size (resizable, remembered)
 //   window.gawkNotch.focusKeyboard()           the global hotkey opened it
 //   window.gawkNotch.voice({kind, text, message})  kind: partial|final|error|end
 //
@@ -81,6 +82,8 @@ export function postNative(msg: NativeMessage): void {
 
 export interface NativeReceiver {
   setExpanded: (expanded: boolean) => void;
+  /** The open panel's size, as the person last dragged it. */
+  setSize?: (width: number, height: number) => void;
   focusKeyboard?: () => void;
   voice?: (event: { kind: string; text?: string; message?: string }) => void;
 }

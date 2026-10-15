@@ -34,6 +34,7 @@ import {
   nextLessonStep,
   saveLessonDone,
 } from "./lesson";
+import { pollInterval, useNotchLive } from "./live";
 import {
   agentChannel,
   type ComposerState,
@@ -50,8 +51,6 @@ import { useAnnounce } from "./useAnnounce";
 import { deliverNativeVoice, voiceAvailable } from "./voice";
 
 export { moodTransitions, newAttentionIds } from "./hooks";
-
-const POLL_MS = 2_000;
 
 function useGestureUnlock(): void {
   useEffect(() => {
@@ -82,6 +81,10 @@ export function NotchApp({
 }) {
   const queryClient = useQueryClient();
   const [measured] = useState(() => readGeometry(search));
+  // The open panel's size, when the app has one to tell (dragged, remembered).
+  const [openSize, setOpenSize] = useState<{ w: number; h: number } | null>(
+    null,
+  );
   // ?peek=<seconds> makes peeks frequent (demos, screenshots).
   const peekEveryMs = useMemo(
     () =>
@@ -102,10 +105,14 @@ export function NotchApp({
   // query key (and its data) stays put across open and close.
   const openRef = useRef(expanded);
   openRef.current = expanded;
+  // Changes arrive from the event stream the moment they happen; the poll
+  // is the open notch's heartbeat (it lets the office read the screen)
+  // and the fallback when the stream is not there (live.ts).
+  const live = useNotchLive(queryClient);
   const query = useQuery({
     queryKey: NOTCH_QUERY_KEY,
     queryFn: () => getNotchState(openRef.current),
-    refetchInterval: POLL_MS,
+    refetchInterval: pollInterval(expanded, live),
     refetchIntervalInBackground: true,
   });
   const state = query.data ?? null;
@@ -130,6 +137,9 @@ export function NotchApp({
 
   useEffect(() => {
     const uninstall = installNativeReceiver(setExpanded, {
+      setSize: (w, h) => {
+        if (w > 0 && h > 0) setOpenSize({ w, h });
+      },
       focusKeyboard: () => setExpanded(true),
       voice: deliverNativeVoice,
     });
@@ -165,8 +175,15 @@ export function NotchApp({
   const finished = useMemo(() => finishedSlugs(state), [state]);
   const shape = stripShapeFor(measured, finished, agents);
   const geometry = useMemo(
-    () => ({ ...measured, earWidth: shape.earWidth, band: shape.band }),
-    [measured, shape.earWidth, shape.band],
+    () => ({
+      ...measured,
+      earWidth: shape.earWidth,
+      band: shape.band,
+      ...(openSize
+        ? { expandedWidth: openSize.w, expandedHeight: openSize.h }
+        : {}),
+    }),
+    [measured, shape.earWidth, shape.band, openSize],
   );
   useEffect(() => {
     postNative({ type: "ears", width: shape.earWidth, band: shape.band });

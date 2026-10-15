@@ -41,6 +41,12 @@ static const CGFloat kMaxBandHeight = 14.0;
 static const CGFloat kExpandedWidth = 640.0;
 static const CGFloat kExpandedHeight = 820.0;
 static const CGFloat kExpandedScreenMargin = 48.0;
+// The open panel can be dragged bigger or smaller by its bottom and side
+// edges (GawkNotchResizeEdge) and keeps that size, no smaller than this.
+static const CGFloat kExpandedMinWidth = 520.0;
+static const CGFloat kExpandedMinHeight = 440.0;
+static const CGFloat kResizeEdge = 8.0;
+static NSString *const kOpenSizeDefaultsKey = @"GawkNotchOpenSize";
 // Matches the .notch-shell CSS transition, so the panel shrinks only after
 // the page has finished animating closed.
 static const NSTimeInterval kCollapseDelay = 0.3;
@@ -76,6 +82,46 @@ static const CGFloat kMaxStageHeight = 160.0;
 }
 @end
 
+// A strip along one edge of the open panel that drags its size. Three of
+// them (left, right, bottom); hidden while collapsed. Width changes keep
+// the panel centred on the notch, so a side edge moves both sides.
+typedef NS_ENUM(NSInteger, GawkResizeSide) {
+	GawkResizeLeft,
+	GawkResizeRight,
+	GawkResizeBottom,
+};
+
+@protocol GawkResizeOwner <NSObject>
+- (void)resizeBy:(NSPoint)delta side:(GawkResizeSide)side;
+- (void)resizeEnded;
+@end
+
+@interface GawkNotchResizeEdge : NSView
+@property(nonatomic) GawkResizeSide side;
+@property(nonatomic, weak) id<GawkResizeOwner> owner;
+@property(nonatomic) NSPoint last;
+@end
+
+@implementation GawkNotchResizeEdge
+- (void)resetCursorRects {
+	[self addCursorRect:self.bounds cursor:self.side == GawkResizeBottom
+		? [NSCursor resizeUpDownCursor]
+		: [NSCursor resizeLeftRightCursor]];
+}
+- (void)mouseDown:(NSEvent *)event {
+	self.last = [NSEvent mouseLocation];
+}
+- (void)mouseDragged:(NSEvent *)event {
+	NSPoint now = [NSEvent mouseLocation];
+	NSPoint delta = NSMakePoint(now.x - self.last.x, now.y - self.last.y);
+	self.last = now;
+	[self.owner resizeBy:delta side:self.side];
+}
+- (void)mouseUp:(NSEvent *)event {
+	[self.owner resizeEnded];
+}
+@end
+
 // Hosts the web view and owns the hover tracking area.
 @interface GawkNotchContentView : NSView
 @property(nonatomic, weak) id hoverOwner;
@@ -108,7 +154,7 @@ static const CGFloat kMaxStageHeight = 160.0;
 }
 @end
 
-@interface GawkNotchController : NSObject <WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate>
+@interface GawkNotchController : NSObject <WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate, GawkResizeOwner>
 @property(nonatomic, strong) GawkNotchPanel *panel;
 @property(nonatomic, strong) GawkNotchContentView *content;
 @property(nonatomic, strong) WKWebView *webView;
@@ -153,6 +199,9 @@ static const CGFloat kMaxStageHeight = 160.0;
 // Widget-only mode: with the main window closed the app is just the notch,
 // so it leaves the Dock; opening the full view brings the Dock icon back.
 @property(nonatomic, strong) NSTimer *dockWatch;
+// The open panel's size as the person last dragged it; zero means the default.
+@property(nonatomic) NSSize openSize;
+@property(nonatomic, strong) NSArray<GawkNotchResizeEdge *> *resizeEdges;
 - (void)hotkeyPressed;
 @end
 
@@ -216,12 +265,87 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	return self.earsWidth;
 }
 
-// The open panel's size on this screen.
+// The open panel's size on this screen: the size last dragged to, else the
+// default, never past the screen's edges and never below the minimum.
 - (NSSize)expandedSize {
 	NSRect sf = [self notchScreen].frame;
-	CGFloat w = MIN(kExpandedWidth, NSWidth(sf) - 2 * kExpandedScreenMargin);
-	CGFloat h = MIN(kExpandedHeight, NSHeight(sf) - kExpandedScreenMargin);
+	CGFloat want = self.openSize.width > 0 ? self.openSize.width : kExpandedWidth;
+	CGFloat wantH = self.openSize.height > 0 ? self.openSize.height : kExpandedHeight;
+	CGFloat w = MAX(kExpandedMinWidth, MIN(want, NSWidth(sf) - 2 * kExpandedScreenMargin));
+	CGFloat h = MAX(kExpandedMinHeight, MIN(wantH, NSHeight(sf) - kExpandedScreenMargin));
 	return NSMakeSize(round(w), round(h));
+}
+
+- (void)loadOpenSize {
+	NSDictionary *saved = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kOpenSizeDefaultsKey];
+	CGFloat w = [saved[@"w"] respondsToSelector:@selector(doubleValue)] ? [saved[@"w"] doubleValue] : 0;
+	CGFloat h = [saved[@"h"] respondsToSelector:@selector(doubleValue)] ? [saved[@"h"] doubleValue] : 0;
+	self.openSize = (w > 0 && h > 0) ? NSMakeSize(w, h) : NSZeroSize;
+}
+
+- (void)saveOpenSize {
+	if (self.openSize.width <= 0 || self.openSize.height <= 0) {
+		return;
+	}
+	[[NSUserDefaults standardUserDefaults] setObject:@{@"w" : @(self.openSize.width), @"h" : @(self.openSize.height)}
+	                                          forKey:kOpenSizeDefaultsKey];
+}
+
+// Tells the page the open panel's size, so it lays out to exactly that.
+- (void)tellPageSize {
+	NSSize open = [self expandedSize];
+	NSString *js = [NSString stringWithFormat:@"window.gawkNotch && window.gawkNotch.setSize && window.gawkNotch.setSize(%.0f, %.0f)",
+		open.width, open.height];
+	[self.webView evaluateJavaScript:js completionHandler:nil];
+}
+
+#pragma mark Resizing the open panel
+
+- (void)layoutResizeEdges {
+	NSRect b = self.content.bounds;
+	for (GawkNotchResizeEdge *edge in self.resizeEdges) {
+		edge.hidden = !self.expanded;
+		switch (edge.side) {
+		case GawkResizeLeft:
+			edge.frame = NSMakeRect(0, 0, kResizeEdge, NSHeight(b));
+			break;
+		case GawkResizeRight:
+			edge.frame = NSMakeRect(NSWidth(b) - kResizeEdge, 0, kResizeEdge, NSHeight(b));
+			break;
+		case GawkResizeBottom:
+			edge.frame = NSMakeRect(0, 0, NSWidth(b), kResizeEdge);
+			break;
+		}
+	}
+	[self.content.window invalidateCursorRectsForView:self.content];
+}
+
+- (void)resizeBy:(NSPoint)delta side:(GawkResizeSide)side {
+	if (!self.expanded) {
+		return;
+	}
+	NSSize size = [self expandedSize];
+	switch (side) {
+	case GawkResizeLeft:
+		size.width -= 2 * delta.x;
+		break;
+	case GawkResizeRight:
+		size.width += 2 * delta.x;
+		break;
+	case GawkResizeBottom:
+		size.height -= delta.y;
+		break;
+	}
+	self.openSize = size;
+	[self.panel setFrame:[self frameExpanded:YES] display:YES];
+	self.glass.frame = self.content.bounds;
+	[self layoutResizeEdges];
+	[self tellPageSize];
+}
+
+- (void)resizeEnded {
+	self.openSize = [self expandedSize];
+	[self saveOpenSize];
 }
 
 - (NSRect)frameExpanded:(BOOL)expanded {
@@ -251,6 +375,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 
 - (void)start {
 	[self measure];
+	[self loadOpenSize];
 
 	NSRect frame = [self frameExpanded:NO];
 	self.panel = [[GawkNotchPanel alloc]
@@ -302,6 +427,16 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	[self.content addSubview:self.webView];
 	self.content.hoverOwner = self;
 	self.content.stripHeight = self.notchHeight + self.bandHeight;
+	NSMutableArray<GawkNotchResizeEdge *> *edges = [NSMutableArray array];
+	for (NSNumber *side in @[ @(GawkResizeLeft), @(GawkResizeRight), @(GawkResizeBottom) ]) {
+		GawkNotchResizeEdge *edge = [[GawkNotchResizeEdge alloc] initWithFrame:NSZeroRect];
+		edge.side = (GawkResizeSide)side.integerValue;
+		edge.owner = self;
+		edge.hidden = YES;
+		[self.content addSubview:edge positioned:NSWindowAbove relativeTo:self.webView];
+		[edges addObject:edge];
+	}
+	self.resizeEdges = edges;
 	self.panel.contentView = self.content;
 
 	[[NSNotificationCenter defaultCenter] addObserver:self
@@ -531,7 +666,9 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 		self.content.coversAll = YES;
 		[self.panel setFrame:[self frameExpanded:YES] display:YES];
 		[self showGlass:YES];
+		[self tellPageSize];
 		[self tellPageExpanded:YES];
+		[self layoutResizeEdges];
 		// Key, so one keystroke answers an agent. The panel is
 		// non-activating: the app you were in stays the active app.
 		[self.panel makeKeyWindow];
@@ -544,6 +681,7 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 	[self stopVoice];
 	self.pinned = NO;
 	self.content.coversAll = NO;
+	[self layoutResizeEdges];
 	[self showGlass:NO];
 	[self tellPageExpanded:NO];
 	if (self.panel.isKeyWindow) {
