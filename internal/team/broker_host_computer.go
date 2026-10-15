@@ -34,6 +34,8 @@ type HostComputer interface {
 	RequestPermission(kind string) error
 	// Status says whether the daemon is up, and why not.
 	Status() HostComputerStatus
+	// DriverPath is the driver binary and its socket, for a bot's bridge.
+	DriverPath() (binary, socket string, ok bool)
 }
 
 // HostComputerStatus is the daemon's health in one line.

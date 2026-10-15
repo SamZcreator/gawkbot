@@ -1,0 +1,56 @@
+# Bots on the person's own Mac
+
+Status: shipped in slices from 2026-10-15. This is the contract; the
+reference for the mechanics is the code it names.
+
+## What it is
+
+A bot whose computer is set to **This Mac** (`officeMember.Computer =
+"mac"`) works on the person's own screen, in the foreground, with its own
+cursor: the person watches it the way they would watch a colleague at their
+keyboard. It is the visible, trust-first alternative to the container and
+cloud desktops; speed matters less than seeing it.
+
+## Who runs what
+
+- The gawkbot Mac app spawns the open-source Cua Driver in its embedded
+  mode (`internal/hostcomputer`, `desktop/oswails/host_computer_darwin.go`).
+  macOS ties Accessibility and Screen Recording to the app that spawns the
+  driver, so the daemon is always the app's child, whether the app owns the
+  office or attached to one the CLI serves (`POST /host-computer/attach`).
+- The driver never prompts for permissions; the app does, when the notch
+  asks (`permission` bridge message). Nothing acts until both grants exist.
+- A bot's turn gets the driver as the MCP server `computer`, through
+  `gawkbot computer-mcp --host <socket> <slug>` (`internal/computer/host.go`).
+
+## What a bot may do
+
+Only the tools in `internal/hostcomputer/policy.go` reach the driver:
+reads of apps, windows and trees; the acting tools (click, type, keys,
+scroll, drag, set_value, menus, launch, window frames, batched steps); and
+the bot's own cursor. The clipboard, the browser's logged-in profile,
+recordings and the driver's configuration are refused on the near side.
+
+Every call carries the bot's session, so the driver draws a cursor in the
+bot's colour with its name. Acting calls are delivered in the foreground
+unless the bot asks for the background.
+
+## Consent
+
+Before a bot's first action of a turn, the person is asked in the notch:
+a Needs-you card, "Allow this turn" (recommended) / "Always allow" / "No".
+The bridge waits up to two minutes; no, or silence, refuses every action of
+that turn. "Always allow" flips the one switch (`mac_computer_always_allow`,
+Settings, Notch), after which turns do not ask. The card answers through
+`POST /computer/{slug}/control`, never `/requests/answer`.
+
+## Stopping
+
+⌥Esc (or ⌃⌥Esc when another app owns ⌥Esc) stops every agent now, through
+the governor's stop. A stopped turn closes its bridge, and the bridge ends
+the bot's driver session on the way out, so its cursor leaves the screen.
+
+## Not yet
+
+Pointing while the lead speaks (voice), walkthroughs with click detection,
+the dock cards for working bots, and a per-bot "always allow".

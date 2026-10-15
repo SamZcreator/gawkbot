@@ -33,6 +33,13 @@ var (
 	notchHotKeyStatus atomic.Int32
 )
 
+// setNotchStop installs what the stop key runs.
+func setNotchStop(fn func()) {
+	notchOpenMu.Lock()
+	notchStopFn = fn
+	notchOpenMu.Unlock()
+}
+
 // startNotch shows the notch for officeURL. onOpen runs on its own goroutine
 // when the notch asks to open the main window at an app path (validated as
 // a same-origin path by the native side and again by safeAppPath).
@@ -43,6 +50,19 @@ func startNotch(officeURL string, onOpen func(path string)) {
 	cURL := C.CString(officeURL)
 	defer C.free(unsafe.Pointer(cURL))
 	C.GawkNotchStart(cURL)
+}
+
+// notchStopFn stops every agent; set by main once the office URL is known.
+var notchStopFn func()
+
+//export goNotchStopAll
+func goNotchStopAll() {
+	notchOpenMu.Lock()
+	fn := notchStopFn
+	notchOpenMu.Unlock()
+	if fn != nil {
+		go fn()
+	}
 }
 
 //export goNotchHotKeyStatus

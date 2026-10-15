@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -56,6 +57,21 @@ func freePort() (int, error) {
 	}
 	defer func() { _ = l.Close() }()
 	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// stopEveryAgent asks the office to stop every turn now (the ⌥Esc key),
+// through the web proxy, which signs loopback callers as the owner.
+func stopEveryAgent(officeURL string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(officeURL, "/")+"/api/governor", strings.NewReader(`{"action":"stop"}`))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if res, err := http.DefaultClient.Do(req); err == nil {
+		_ = res.Body.Close()
+	}
 }
 
 // waitForPort polls a loopback address until it accepts a connection or
@@ -177,6 +193,7 @@ func main() {
 			startNotch(target, func(path string) {
 				openInMainWindow(ctx, target, path)
 			})
+			setNotchStop(func() { stopEveryAgent(target) })
 		},
 		OnShutdown: func(context.Context) {
 			hostMu.Lock()

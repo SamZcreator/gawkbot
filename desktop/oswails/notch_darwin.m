@@ -158,8 +158,14 @@ static EventHotKeyRef gHotKey;
 
 static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void *user) {
 	(void)next;
-	(void)event;
 	(void)user;
+	EventHotKeyID which = {0, 0};
+	GetEventParameter(event, kEventParamDirectObject, typeEventHotKeyID, NULL, sizeof(which), NULL, &which);
+	if (which.id == 2) {
+		// ⌥Esc: every agent stops now, whatever it was doing on this Mac.
+		goNotchStopAll();
+		return noErr;
+	}
 	dispatch_async(dispatch_get_main_queue(), ^{
 		[gNotch hotkeyPressed];
 	});
@@ -373,6 +379,14 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 		NSLog(@"gawkbot notch: global hotkey ⌥Space / ⌃⌥Space not registered (OSStatus %d)", (int)status);
 	}
 	goNotchHotKeyStatus((int)status);
+	// The stop key: ⌥Esc, or ⌃⌥Esc when another app owns it.
+	EventHotKeyID stopID = {'gawk', 2};
+	static EventHotKeyRef gStopKey;
+	if (RegisterEventHotKey(kVK_Escape, optionKey, stopID, GetApplicationEventTarget(), 0, &gStopKey) != noErr) {
+		if (RegisterEventHotKey(kVK_Escape, controlKey | optionKey, stopID, GetApplicationEventTarget(), 0, &gStopKey) != noErr) {
+			NSLog(@"gawkbot notch: stop key ⌥Esc / ⌃⌥Esc not registered");
+		}
+	}
 }
 
 - (void)hotkeyPressed {

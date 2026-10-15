@@ -64,6 +64,10 @@ func (h *remoteHost) Driver() hostcomputer.Caller {
 
 func (h *remoteHost) Screen() *hostcomputer.Watcher { return h.watcher }
 
+func (h *remoteHost) DriverPath() (string, string, bool) {
+	return h.binary, h.socket, h.Status().Ready
+}
+
 func (h *remoteHost) RequestPermission(string) error {
 	return errors.New("the Mac app shows permission prompts; ask through the notch")
 }
@@ -96,7 +100,7 @@ func (h *remoteHost) close() {
 }
 
 func validHostSocket(path string) bool {
-	if !strings.HasPrefix(path, "/tmp/gawkbot-cua-") || strings.Contains(path, "..") {
+	if !strings.HasPrefix(path, hostcomputer.SocketPrefix()) || strings.Contains(path, "..") {
 		return false
 	}
 	st, err := os.Stat(path)

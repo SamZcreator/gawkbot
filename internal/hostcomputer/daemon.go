@@ -68,10 +68,22 @@ type daemonRun struct {
 	err    error
 }
 
-// SocketPath is the per-user endpoint under /tmp: short enough for the
-// kernel's path limit and private to the user through its mode.
+// socketDir is where the daemon's socket lives. Not os.TempDir(): on macOS
+// that is the long per-user /var/folders path, and the kernel refuses a
+// Unix socket path past about a hundred bytes. The same decision as the
+// broker's token file (internal/brokeraddr/addr.go); the socket is private
+// to the user through its mode.
+const socketDir = "/tmp"
+
+// SocketPrefix is the start of every gawkbot driver socket path, so the
+// office can tell its own sockets from anything else under that directory.
+func SocketPrefix() string {
+	return filepath.Join(socketDir, "gawkbot-cua-")
+}
+
+// SocketPath is this user's endpoint.
 func SocketPath() string {
-	return filepath.Join("/tmp", "gawkbot-cua-"+strconv.Itoa(os.Getuid())+".sock")
+	return SocketPrefix() + strconv.Itoa(os.Getuid()) + ".sock"
 }
 
 // Args is the daemon's argv after the binary.

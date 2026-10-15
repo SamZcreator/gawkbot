@@ -185,3 +185,35 @@ export const NO_NOTCH = {
   earWidth: 64,
   band: 0,
 };
+
+/** A bot set to run on this Mac, waiting to be allowed its first action. */
+export const CONSENT_OFFICE: NotchState = {
+  ...QUIET_OFFICE,
+  mood: "needs_you",
+  headline: "Ops wants to use this Mac",
+  attention: [
+    {
+      id: "consent:ops",
+      kind: "computer_consent",
+      from: "ops",
+      from_name: "Ops",
+      title: "Wants to use this Mac",
+      question: "Ops wants to click and type on this Mac. Allow it this turn?",
+      context:
+        "It acts in the foreground with its own cursor, which you can watch. ⌥Esc stops every agent at once.",
+      options: [
+        { id: "allow", label: "Allow this turn" },
+        {
+          id: "allow_always",
+          label: "Always allow",
+          description:
+            "Never ask again; one switch in Settings turns it back off.",
+        },
+        { id: "deny", label: "No" },
+      ],
+      recommended_id: "allow",
+      blocking: true,
+      created_at: new Date().toISOString(),
+    },
+  ],
+};

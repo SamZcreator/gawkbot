@@ -201,6 +201,14 @@ func (h *macHost) Driver() hostcomputer.Caller {
 	return h.client
 }
 
+// DriverPath is the bundled driver and its socket, for a bot's bridge.
+func (h *macHost) DriverPath() (string, string, bool) {
+	if h == nil || h.daemon == nil || !h.daemon.Running() {
+		return "", "", false
+	}
+	return h.daemon.Binary, h.daemon.Socket, true
+}
+
 // Screen is the frontmost-app watcher.
 func (h *macHost) Screen() *hostcomputer.Watcher {
 	if h == nil || h.watcher == nil {

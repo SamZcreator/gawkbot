@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import * as client from "../api/client";
-import { notchStatePath, requestPermission } from "./api";
+import { answerRequest, notchStatePath, requestPermission } from "./api";
 import * as bridge from "./bridge";
 
 vi.mock("../api/client", () => ({
@@ -34,6 +34,20 @@ describe("asking for a macOS grant", () => {
     await requestPermission("screen_recording");
     expect(client.post).toHaveBeenCalledWith("/notch/permissions/request", {
       kind: "screen_recording",
+    });
+  });
+});
+
+describe("answering a bot that wants this Mac", () => {
+  it("goes to the computer's control, not the inbox", async () => {
+    await answerRequest("consent:ops", "allow");
+    expect(client.post).toHaveBeenCalledWith("/computer/ops/control", {
+      action: "allow",
+    });
+    await answerRequest("req-1", "yes");
+    expect(client.post).toHaveBeenCalledWith("/requests/answer", {
+      id: "req-1",
+      choice_id: "yes",
     });
   });
 });

@@ -86,7 +86,7 @@ type officeMemberMutationBody struct {
 
 func validComputerDestination(v string) bool {
 	switch strings.TrimSpace(v) {
-	case "", computerOff, computerSandbox, computerCloud:
+	case "", computerOff, computerSandbox, computerCloud, computerMac:
 		return true
 	}
 	return false
@@ -330,7 +330,7 @@ func (b *Broker) createOfficeMember(r *http.Request, slug string, body officeMem
 	}
 	if body.Computer != nil {
 		if !validComputerDestination(*body.Computer) {
-			return officeMemberMutationResult{}, newOfficeMemberMutationError(http.StatusBadRequest, "computer must be sandbox, cloud, off, or empty")
+			return officeMemberMutationResult{}, newOfficeMemberMutationError(http.StatusBadRequest, "computer must be sandbox, cloud, mac, off, or empty")
 		}
 		member.Computer = strings.TrimSpace(*body.Computer)
 	}

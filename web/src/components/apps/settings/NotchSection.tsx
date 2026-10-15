@@ -1,5 +1,5 @@
 import { Field, PageHeader, SettingsGroup } from "./components";
-import type { SectionProps } from "./types";
+import type { NotchSectionProps } from "./notchConfig";
 
 // ─── Notch section ──────────────────────────────────────────────────────
 
@@ -14,8 +14,9 @@ import type { SectionProps } from "./types";
  * On by default. The notch reads the choice from the broker on its next
  * poll, so it applies within a couple of seconds and needs no restart.
  */
-export function NotchSection({ cfg, save }: SectionProps) {
+export function NotchSection({ cfg, save }: NotchSectionProps) {
   const jumpOut = cfg.notch_jump_out !== false;
+  const alwaysAllow = cfg.mac_computer_always_allow === true;
 
   return (
     <div className="settings-page">
@@ -37,6 +38,23 @@ export function NotchSection({ cfg, save }: SectionProps) {
               checked={jumpOut}
               onChange={(e) => void save({ notch_jump_out: e.target.checked })}
               data-testid="settings-notch-jump-out-toggle"
+            />
+          </label>
+        </Field>
+        <Field
+          label="Bots on this Mac"
+          hint="A bot set to run on this Mac asks you in the notch before its first click or keystroke each turn. Turn this on to let them act without asking; ⌥Esc still stops every bot at once."
+        >
+          <label className="settings-switch-label">
+            <span>Always allow computer use on this Mac</span>
+            <input
+              type="checkbox"
+              className="switch"
+              checked={alwaysAllow}
+              onChange={(e) =>
+                void save({ mac_computer_always_allow: e.target.checked })
+              }
+              data-testid="settings-mac-always-allow-toggle"
             />
           </label>
         </Field>

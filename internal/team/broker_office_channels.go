@@ -204,6 +204,8 @@ func (b *Broker) handleConfig(w http.ResponseWriter, r *http.Request) {
 			"analytics_configured":                config.ResolvePostHogKey() != "",
 			// Whether agents may leave the notch to get attention.
 			"notch_jump_out": cfg.IsNotchJumpOutEnabled(),
+			// Whether bots on this Mac act without asking each turn.
+			"mac_computer_always_allow": cfg.IsMacComputerAlwaysAllowed(),
 			// Config file path (informational)
 			"config_path": config.ConfigPath(),
 		})
@@ -254,6 +256,7 @@ func (b *Broker) handleConfig(w http.ResponseWriter, r *http.Request) {
 			AnalyticsTelemetry        *bool `json:"analytics_telemetry_enabled,omitempty"`
 			AnalyticsSessionRecording *bool `json:"analytics_session_recording_enabled,omitempty"`
 			NotchJumpOut              *bool `json:"notch_jump_out,omitempty"`
+			MacComputerAlwaysAllow    *bool `json:"mac_computer_always_allow,omitempty"`
 			// ProviderEndpoints is a partial-update map: keys present in
 			// the payload replace the corresponding entry; absent keys are
 			// preserved. Pass an empty value (`{"base_url":"","model":""}`)
@@ -518,6 +521,11 @@ func (b *Broker) handleConfig(w http.ResponseWriter, r *http.Request) {
 		if body.NotchJumpOut != nil {
 			v := *body.NotchJumpOut
 			cfg.NotchJumpOutEnabled = &v
+			changed = true
+		}
+		if body.MacComputerAlwaysAllow != nil {
+			v := *body.MacComputerAlwaysAllow
+			cfg.MacComputerAlwaysAllow = &v
 			changed = true
 		}
 		if body.ProviderEndpoints != nil {

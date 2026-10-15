@@ -821,7 +821,7 @@ export interface OfficeMember {
    * Where this bot's computer runs. "" (or absent) means auto: sandbox when
    * a container runtime exists, else off. See docs/specs/gawkbot-bot-computers.md.
    */
-  computer?: "" | "off" | "sandbox" | "cloud";
+  computer?: "" | "off" | "sandbox" | "cloud" | "mac";
   /** Cloud provider for `computer: "cloud"`. "" means box. */
   cloud_backend?: "" | "box";
   /** Who made this bot (memberTypes.ts). */

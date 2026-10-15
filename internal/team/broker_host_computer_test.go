@@ -78,6 +78,9 @@ func (h *fakeMacHost) RequestPermission(kind string) error {
 	h.asked = append(h.asked, kind)
 	return nil
 }
+func (h *fakeMacHost) DriverPath() (string, string, bool) {
+	return "/usr/bin/true", "/tmp/gawkbot-cua-test.sock", h.ready
+}
 func (h *fakeMacHost) Status() HostComputerStatus {
 	if !h.ready {
 		return HostComputerStatus{Problem: "the driver is not running"}

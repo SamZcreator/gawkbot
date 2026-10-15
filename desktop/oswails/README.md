@@ -120,6 +120,12 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
   with a sequence the page draws once. A harness for the native part lives
   outside the repo (`clang ... -DGAWK_OVERLAY_TRACE overlay_darwin.m`).
 
+- **Bots on this Mac**: a bot set to run on "This Mac" gets the embedded
+  driver as its `computer` tools, with its own named, coloured cursor,
+  acting in the foreground; the notch asks before its first action each
+  turn, and ⌥Esc (or ⌃⌥Esc) stops every agent. See
+  `docs/specs/mac-cursor-agents.md`.
+
 Data is one poll of `GET /notch/state` (`internal/team/broker_notch.go`).
 The page↔native contract is in `web/src/notch/bridge.ts`. The panel refuses
 navigation off the office origin, and "open in app" accepts only in-app paths

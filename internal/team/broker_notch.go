@@ -225,6 +225,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	// open=1 is the notch saying it is on screen: the only time the owner's
 	// screen context is read, and only for as long as the polls keep coming.
 	state = b.withNotchHost(r.Context(), state, owner, now, r.URL.Query().Get("open") == "1")
+	state = b.withNotchConsents(state, owner)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()

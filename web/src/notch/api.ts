@@ -38,8 +38,21 @@ export function requestPermission(kind: "accessibility" | "screen_recording") {
   return post("/notch/permissions/request", { kind }).then(() => undefined);
 }
 
-/** Answers a pending request with one of its options (same path as the Inbox). */
+/** The notch card id of a bot waiting to be allowed onto this Mac. */
+export const CONSENT_CARD_PREFIX = "consent:";
+
+/**
+ * Answers a pending request with one of its options (same path as the
+ * Inbox). A consent card is not a request: its answer goes to the
+ * computer's control, and the card leaves on the next poll.
+ */
 export function answerRequest(id: string, choiceId: string) {
+  if (id.startsWith(CONSENT_CARD_PREFIX)) {
+    const slug = id.slice(CONSENT_CARD_PREFIX.length);
+    return post(`/computer/${encodeURIComponent(slug)}/control`, {
+      action: choiceId,
+    });
+  }
   return post("/requests/answer", { id, choice_id: choiceId });
 }
 

@@ -11,7 +11,7 @@ interface ComputerDrivingProps {
   helpReason: string | null;
   /** True when the bot is mid-turn; deleting the computer waits for it. */
   busy: boolean;
-  destination: "off" | "sandbox" | "cloud" | undefined;
+  destination: "off" | "sandbox" | "cloud" | "mac" | undefined;
   pending: boolean;
   onTakeControl: () => void;
   onHandBack: () => void;
