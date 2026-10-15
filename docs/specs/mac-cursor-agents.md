@@ -50,7 +50,15 @@ Settings, Notch), after which turns do not ask. The card answers through
 the governor's stop. A stopped turn closes its bridge, and the bridge ends
 the bot's driver session on the way out, so its cursor leaves the screen.
 
+Each bot at work also has a card at the top right of the screen, with its
+face, what it is doing, and History, Open, and Stop. The cards are the
+notch page again (`notch.html?dock=1`, `web/src/notch/NotchDock.tsx`) in a
+second small panel the Mac app floats (`desktop/oswails/dock_darwin.m`).
+Stop there is `POST /notch/stop {slug}`: it ends that one bot's turns and
+leaves the office running, unlike ⌥Esc. The cards step aside while the
+notch is open, and the notch's one "jump out" switch hides them too.
+
 ## Not yet
 
 Pointing while the lead speaks (voice), walkthroughs with click detection,
-the dock cards for working bots, and a per-bot "always allow".
+and a per-bot "always allow".

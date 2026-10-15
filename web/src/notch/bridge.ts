@@ -28,6 +28,8 @@ export const EXPANDED_HEIGHT = 820;
 //   window.gawkNotch.voice({kind, text, message})  kind: partial|final|error|end
 //
 // Geometry arrives as query params: ?nw=<notch width>&nh=<notch height>&ew=<ear width>.
+// The working-bot cards at the top right are the same page with ?dock=1 and
+// their own, smaller contract (dockBridge.ts).
 // Outside the Mac app (a browser, Storybook, tests) every call is a no-op.
 
 export type NativeMessage =

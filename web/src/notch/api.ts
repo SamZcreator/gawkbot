@@ -75,3 +75,12 @@ export function markFinishedSeen(id: string) {
 export function showSession(slug: string) {
   return post("/agents/local/sessions/show", { slug });
 }
+
+/**
+ * Stops one bot's running turns, from its card at the top right. The
+ * office keeps going: only that bot stops, and it takes its next message
+ * as usual. Owner only.
+ */
+export function stopBot(slug: string) {
+  return post("/notch/stop", { slug }).then(() => undefined);
+}

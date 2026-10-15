@@ -520,6 +520,8 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 - (void)applyExpanded:(BOOL)expanded animatePage:(BOOL)animate {
 	self.expanded = expanded;
 	NSUInteger gen = ++self.generation;
+	// The working-bot cards (dock_darwin.m) would sit under the open panel.
+	GawkDockSuppress(expanded ? 1 : 0);
 	if (expanded) {
 		// Grow the window first so the page has room to animate open.
 		self.content.coversAll = YES;
@@ -682,6 +684,8 @@ void GawkRequestAccessibility(void);
 void GawkRequestScreenCapture(void);
 void GawkOverlaySetScene(const char *json);
 void GawkOverlayClear(void);
+void GawkDockStart(const char *officeURL);
+void GawkDockSuppress(int suppressed);
 
 #pragma mark Page → native
 
@@ -1033,6 +1037,9 @@ void GawkNotchStart(const char *officeURL) {
 		gNotch = [[GawkNotchController alloc] init];
 		gNotch.officeURL = url;
 		[gNotch start];
+		// The working-bot cards at the top right (dock_darwin.m) load the
+		// same page with ?dock=1.
+		GawkDockStart(officeURL);
 	});
 }
 

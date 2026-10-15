@@ -28,7 +28,7 @@ export function NotchSection({ cfg, save }: NotchSectionProps) {
       <SettingsGroup>
         <Field
           label="Getting your attention"
-          hint="Turn this off if it gets in your way. Bots then stay inside the notch: it does not open by itself, nobody peeks out, flies in, or chats while waiting. You still see how many need you, and a click opens it."
+          hint="Turn this off if it gets in your way. Bots then stay inside the notch: it does not open by itself, nobody peeks out, flies in, or chats while waiting. You still see how many need you, and a click opens it. The same switch hides the working-bot cards at the top right of the screen."
         >
           <label className="settings-switch-label">
             <span>Bots jump out of the notch to get your attention</span>

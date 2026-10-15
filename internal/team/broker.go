@@ -728,6 +728,7 @@ func (b *Broker) StartOnPort(port int) error {
 	// Drawing on the owner's screen and pointing at controls (broker_notch_overlay.go).
 	mux.HandleFunc("/notch/overlay", b.requireAuth(b.handleNotchOverlay))
 	mux.HandleFunc("/notch/point", b.requireAuth(b.handleNotchPoint))
+	mux.HandleFunc("/notch/stop", b.requireAuth(b.handleNotchStop))
 	mux.HandleFunc("/channels", b.requireAuth(b.handleChannels))
 	mux.HandleFunc("/channels/dm", b.requireAuth(b.handleCreateDM))
 	mux.HandleFunc("/channels/generate", b.requireAuth(b.handleGenerateChannel))

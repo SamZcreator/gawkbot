@@ -1754,3 +1754,96 @@ kbd {
 .nperm-row.is-granted .nperm-name {
   color: var(--notch-text-tertiary);
 }
+
+/* The cards at the top right of the screen (notch.html?dock=1): one per
+   bot at work, on the same dark glass as the open notch. The page is
+   transparent around them; the Mac app sizes its window to .ndock-root. */
+.ndock-root {
+  width: 300px;
+  padding: 0;
+  font-family: var(--notch-font);
+  color: var(--notch-text);
+}
+.ndock {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.ndock-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--notch-card-radius);
+  background: var(--notch-sheet-top);
+  box-shadow:
+    inset 0 0.5px 0 var(--notch-specular),
+    inset 0 0 0 0.5px var(--notch-hairline),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.ndock-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ndock-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.ndock-state {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--notch-text-secondary);
+}
+.ndock-state i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--dot-working);
+  animation: ndock-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ndock-state i {
+    animation: none;
+  }
+}
+@keyframes ndock-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.ndock-detail {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--notch-text-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.ndock-actions {
+  display: flex;
+  gap: 6px;
+}
+.ndock-actions .nbtn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.ndock-actions .is-danger:last-child {
+  margin-left: auto;
+}
