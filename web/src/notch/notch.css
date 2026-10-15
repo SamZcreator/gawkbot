@@ -2064,3 +2064,31 @@ kbd {
   line-height: 16px;
   text-align: center;
 }
+
+/* Wide enough, the open notch is two panes: Home as a column on the left,
+   the bot's thread on the right, a hairline between. */
+.nsplit {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.nsplit-home {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: inset -0.5px 0 0 var(--notch-hairline);
+}
+.nsplit-home .npanel {
+  padding-right: 12px;
+}
+.nsplit-thread {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.nsplit-thread .npanel {
+  padding-left: 12px;
+}

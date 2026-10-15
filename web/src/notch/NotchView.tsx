@@ -33,6 +33,18 @@ export function collapsedWidth(g: NotchGeometry): number {
   return g.notchWidth + 2 * g.earWidth;
 }
 
+/** From this width the open notch shows Home and a thread side by side. */
+export const SPLIT_MIN_WIDTH = 980;
+/** Home's column in the split; the thread takes the rest. */
+export const SPLIT_HOME_WIDTH = 440;
+
+export function isSplit(
+  width: number,
+  screen: NotchScreen | undefined,
+): boolean {
+  return width >= SPLIT_MIN_WIDTH && !!screen && isAgentScreen(screen);
+}
+
 export function NotchView(props: NotchViewProps) {
   const { geometry, expanded, state } = props;
   // Every notch avatar looks its runtime up by slug, so the strip, the
@@ -104,21 +116,55 @@ export function NotchView(props: NotchViewProps) {
             expanded={expanded}
           />
           {expanded && state && props.screen && isAgentScreen(props.screen) ? (
-            <NotchThread
-              state={state}
-              screen={props.screen}
-              composer={props.composer}
-              sending={props.sending}
-              voiceAvailable={props.voiceAvailable}
-              onComposerText={props.onComposerText}
-              onComposerSubmit={props.onComposerSubmit}
-              onComposerCancel={props.onComposerCancel}
-              onVoice={props.onVoice}
-              onKeyboard={props.onKeyboard}
-              onBack={props.onBack ?? (() => undefined)}
-              onOpen={props.onOpen}
-              onStop={props.onStop ?? (() => undefined)}
-            />
+            isSplit(width, props.screen) ? (
+              <div className="nsplit" data-testid="notch-split">
+                <div
+                  className="nsplit-home"
+                  style={{ width: SPLIT_HOME_WIDTH }}
+                >
+                  <NotchPanel
+                    {...props}
+                    state={state}
+                    hotkey={geometry.hotkey}
+                    composer={null}
+                    compact={true}
+                  />
+                </div>
+                <div className="nsplit-thread">
+                  <NotchThread
+                    state={state}
+                    screen={props.screen}
+                    composer={props.composer}
+                    sending={props.sending}
+                    voiceAvailable={props.voiceAvailable}
+                    onComposerText={props.onComposerText}
+                    onComposerSubmit={props.onComposerSubmit}
+                    onComposerCancel={props.onComposerCancel}
+                    onVoice={props.onVoice}
+                    onKeyboard={props.onKeyboard}
+                    onBack={props.onBack ?? (() => undefined)}
+                    onOpen={props.onOpen}
+                    onStop={props.onStop ?? (() => undefined)}
+                  />
+                </div>
+              </div>
+            ) : (
+              <NotchThread
+                state={state}
+                screen={props.screen}
+                composer={props.composer}
+                sending={props.sending}
+                voiceAvailable={props.voiceAvailable}
+                onComposerText={props.onComposerText}
+                onComposerSubmit={props.onComposerSubmit}
+                onComposerCancel={props.onComposerCancel}
+                onVoice={props.onVoice}
+                onKeyboard={props.onKeyboard}
+                onBack={props.onBack ?? (() => undefined)}
+                onOpen={props.onOpen}
+                onStop={props.onStop ?? (() => undefined)}
+              />
+            )
           ) : expanded ? (
             <NotchPanel {...props} state={state} hotkey={geometry.hotkey} />
           ) : null}

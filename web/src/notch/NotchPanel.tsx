@@ -84,6 +84,8 @@ export interface PanelProps {
   onPermission?: (kind: "accessibility" | "screen_recording") => void;
   /** Talking to the office out loud, when possible (realtime/useRealtime.ts). */
   voice?: Pick<RealtimeTalk, "phase" | "heard" | "said" | "error">;
+  /** Home as the left column of a split: the lead's box and the key help stay out. */
+  compact?: boolean;
   onLessonPracticed?: () => void;
   onLessonSkip?: () => void;
 }
@@ -997,75 +999,80 @@ export function NotchPanel(props: PanelProps) {
 
       {composer && !composingToLead ? composerEl : null}
 
-      {/* The lead is not one of the agents in the list above: it is who
+      {props.compact ? null : (
+        <>
+          {/* The lead is not one of the agents in the list above: it is who
           the human talks to about all of them, so its chat box is always
           here, whatever else is or is not on the panel. */}
-      <section className="nlead" aria-label={leadName}>
-        <button
-          type="button"
-          className="nlead-head"
-          aria-label={`Open ${leadName} in full view`}
-          title="Open in the full app"
-          onClick={() =>
-            props.onOpen(`/agents/${encodeURIComponent(leadSlug)}`)
-          }
-        >
-          <NotchBot
-            slug={leadSlug}
-            avatar={leadAgent?.avatar}
-            mood={leadAgent?.mood ?? "idle"}
-            size={24}
-            label=""
-          />
-          <span className="nlead-name">{leadName}</span>
-          <span className="nlead-status">
-            {leadAgent?.detail || "Manages every agent for you"}
-          </span>
-          <span className="nlead-open" aria-hidden="true">
-            ↗
-          </span>
-        </button>
-        {state.lead_recent && state.lead_recent.length > 0 ? (
-          <ul className="nlead-recent">
-            {state.lead_recent.map((line) => (
-              <li key={`${line.at ?? ""}:${line.from}:${line.text}`}>
-                <b>{line.from === leadSlug ? leadName : "You"}</b> {line.text}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {composer && composingToLead ? (
-          composerEl
-        ) : (
-          <button
-            type="button"
-            className="nask"
-            onClick={() =>
-              state.lead_dm &&
-              props.onReply({
-                kind: "message",
-                slug: leadSlug,
-                name: leadName,
-                channel: state.lead_dm,
-              })
-            }
-          >
-            <span>Ask {leadName} to manage any agent…</span>
-            <span className="nask-keys">
-              <kbd>M</kbd>
-              {voiceAvailable ? <kbd>V</kbd> : null}
-            </span>
-          </button>
-        )}
-      </section>
+          <section className="nlead" aria-label={leadName}>
+            <button
+              type="button"
+              className="nlead-head"
+              aria-label={`Open ${leadName} in full view`}
+              title="Open in the full app"
+              onClick={() =>
+                props.onOpen(`/agents/${encodeURIComponent(leadSlug)}`)
+              }
+            >
+              <NotchBot
+                slug={leadSlug}
+                avatar={leadAgent?.avatar}
+                mood={leadAgent?.mood ?? "idle"}
+                size={24}
+                label=""
+              />
+              <span className="nlead-name">{leadName}</span>
+              <span className="nlead-status">
+                {leadAgent?.detail || "Manages every agent for you"}
+              </span>
+              <span className="nlead-open" aria-hidden="true">
+                ↗
+              </span>
+            </button>
+            {state.lead_recent && state.lead_recent.length > 0 ? (
+              <ul className="nlead-recent">
+                {state.lead_recent.map((line) => (
+                  <li key={`${line.at ?? ""}:${line.from}:${line.text}`}>
+                    <b>{line.from === leadSlug ? leadName : "You"}</b>{" "}
+                    {line.text}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {composer && composingToLead ? (
+              composerEl
+            ) : (
+              <button
+                type="button"
+                className="nask"
+                onClick={() =>
+                  state.lead_dm &&
+                  props.onReply({
+                    kind: "message",
+                    slug: leadSlug,
+                    name: leadName,
+                    channel: state.lead_dm,
+                  })
+                }
+              >
+                <span>Ask {leadName} to manage any agent…</span>
+                <span className="nask-keys">
+                  <kbd>M</kbd>
+                  {voiceAvailable ? <kbd>V</kbd> : null}
+                </span>
+              </button>
+            )}
+          </section>
 
-      <footer className="nkeys">
-        {SHORTCUTS.map(([k, what]) => (
-          <span key={k}>
-            <kbd>{k}</kbd> {what}
-          </span>
-        ))}
-      </footer>
+          <footer className="nkeys">
+            {SHORTCUTS.map(([k, what]) => (
+              <span key={k}>
+                <kbd>{k}</kbd> {what}
+              </span>
+            ))}
+          </footer>
+        </>
+      )}
     </div>
   );
 }
