@@ -29,6 +29,7 @@ import {
   usePeeks,
   useVoice,
 } from "./hooks";
+import { nudgeForIdeas } from "./ideasNudge";
 import {
   firstLessonStep,
   type LessonStep,
@@ -347,6 +348,15 @@ export function NotchApp({
     [setVoiceSession],
   );
   useAnnounce(state, talking);
+  // The morning's ideas: one peek and one line, per look, with the notch closed.
+  const ideasCheckedAt = state?.ideas?.checked_at ?? "";
+  const nudgeLatest = useRef({ state, expanded, talking });
+  nudgeLatest.current = { state, expanded, talking };
+  useEffect(() => {
+    if (!ideasCheckedAt) return;
+    const now = nudgeLatest.current;
+    if (!now.talking) nudgeForIdeas(now.state, now.expanded);
+  }, [ideasCheckedAt, expanded]);
   // Talking to the office out loud, when the office has a key for it.
   const talk = useRealtime(
     expanded,

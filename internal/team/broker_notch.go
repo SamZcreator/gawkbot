@@ -247,6 +247,10 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	state = b.withNotchHostWanted(state, owner)
 	state = b.withNotchAppHint(state, owner, now)
 	state = b.withNotchIdeas(state, owner, now)
+	// A quiet office with ideas waiting says so, in place of "All quiet".
+	if state.Mood == MoodIdle && state.Ideas != nil && len(state.Ideas.Items) > 0 {
+		state.Headline = notchCount(len(state.Ideas.Items), "idea for a new bot, when you're ready", "ideas for new bots, when you're ready")
+	}
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()

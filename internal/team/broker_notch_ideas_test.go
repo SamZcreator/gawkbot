@@ -263,3 +263,23 @@ func TestNotchIdeasRunOncePerLocalDayAtTheHour(t *testing.T) {
 		t.Fatalf("next after today's run: %v", next)
 	}
 }
+
+func TestNotchHeadlineOffersIdeasWhenQuiet(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("WUPHF_RUNTIME_HOME", tmp)
+	withIdeasFakes(t, ideasJudgeReply)
+	b := newTestBroker(t)
+	b.token = "owner-token"
+	if s := notchStateAs(t, b, "owner-token", ""); s.Mood != MoodIdle || strings.Contains(s.Headline, "idea") {
+		t.Fatalf("before the look: %s %q", s.Mood, s.Headline)
+	}
+	b.runNotchIdeasScan(context.Background(), false)
+	s := notchStateAs(t, b, "owner-token", "")
+	if s.Mood != MoodIdle || s.Headline != "2 ideas for new bots, when you're ready" {
+		t.Fatalf("after the look: %s %q", s.Mood, s.Headline)
+	}
+	if joined := notchStateAs(t, b, "", ""); strings.Contains(joined.Headline, "idea") {
+		t.Fatal("a joined human was offered the owner's ideas")
+	}
+}
