@@ -9,6 +9,8 @@ import {
   type StripProps,
   stageHeight,
 } from "./NotchStrip";
+import { NotchThread } from "./NotchThread";
+import { isAgentScreen, type NotchScreen } from "./screens";
 import type { NotchGeometry } from "./types";
 
 // Presentational notch: the strip (always) and the panel (when open), inside
@@ -21,6 +23,10 @@ export type NotchViewProps = Omit<StripProps, "expanded"> &
   Omit<PanelProps, "state"> & {
     geometry: NotchGeometry;
     expanded: boolean;
+    /** Home, or one bot's thread (screens.ts). Home when absent. */
+    screen?: NotchScreen;
+    onBack?: () => void;
+    onStop?: (slug: string) => void;
   };
 
 export function collapsedWidth(g: NotchGeometry): number {
@@ -97,7 +103,23 @@ export function NotchView(props: NotchViewProps) {
             arrival={props.arrival}
             expanded={expanded}
           />
-          {expanded ? (
+          {expanded && state && props.screen && isAgentScreen(props.screen) ? (
+            <NotchThread
+              state={state}
+              screen={props.screen}
+              composer={props.composer}
+              sending={props.sending}
+              voiceAvailable={props.voiceAvailable}
+              onComposerText={props.onComposerText}
+              onComposerSubmit={props.onComposerSubmit}
+              onComposerCancel={props.onComposerCancel}
+              onVoice={props.onVoice}
+              onKeyboard={props.onKeyboard}
+              onBack={props.onBack ?? (() => undefined)}
+              onOpen={props.onOpen}
+              onStop={props.onStop ?? (() => undefined)}
+            />
+          ) : expanded ? (
             <NotchPanel {...props} state={state} hotkey={geometry.hotkey} />
           ) : null}
         </div>

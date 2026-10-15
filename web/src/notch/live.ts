@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import { openSharedEventStream } from "../api/eventStream";
 import { NOTCH_QUERY_KEY } from "./api";
+import { THREAD_QUERY_PREFIX } from "./NotchThread";
 
 /**
  * The notch learns of changes the moment they happen, from the office's
@@ -45,6 +46,7 @@ export function useNotchLive(queryClient: QueryClient): boolean {
       timer = setTimeout(() => {
         timer = null;
         void queryClient.invalidateQueries({ queryKey: NOTCH_QUERY_KEY });
+        void queryClient.invalidateQueries({ queryKey: [THREAD_QUERY_PREFIX] });
       }, LIVE_DEBOUNCE_MS);
     };
     const up = () => setLive(true);

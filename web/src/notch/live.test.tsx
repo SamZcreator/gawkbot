@@ -10,6 +10,7 @@ import {
   pollInterval,
   useNotchLive,
 } from "./live";
+import { THREAD_QUERY_PREFIX } from "./NotchThread";
 
 // A stand-in EventSource the test drives by hand.
 class FakeSource extends EventTarget {
@@ -70,13 +71,17 @@ describe("the live notch", () => {
       source?.says("activity");
       await vi.advanceTimersByTimeAsync(LIVE_DEBOUNCE_MS + 5);
     });
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    // One refetch of the state and one of the open thread, not one per event.
+    expect(invalidate).toHaveBeenCalledTimes(2);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: NOTCH_QUERY_KEY });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: [THREAD_QUERY_PREFIX],
+    });
     await act(async () => {
       source?.says("wiki:write");
       await vi.advanceTimersByTimeAsync(LIVE_DEBOUNCE_MS + 5);
     });
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledTimes(2);
     await act(async () => {
       source?.says("error");
     });

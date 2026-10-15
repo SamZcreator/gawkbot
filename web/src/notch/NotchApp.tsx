@@ -12,6 +12,7 @@ import {
   requestPermission,
   sendMessage,
   showSession,
+  stopBot,
 } from "./api";
 import {
   installNativeReceiver,
@@ -45,6 +46,12 @@ import { NotchView } from "./NotchView";
 import { finishedSlugs } from "./order";
 import { drawOnScreen, relayOverlay } from "./overlay";
 import { useRealtime } from "./realtime/useRealtime";
+import {
+  HOME,
+  isAgentScreen,
+  type NotchScreen,
+  screenForTarget,
+} from "./screens";
 import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
 import type { NotchState } from "./types";
 import { useAnnounce } from "./useAnnounce";
@@ -96,6 +103,11 @@ export function NotchApp({
   const [expanded, setExpanded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composer, setComposer] = useState<ComposerState | null>(null);
+  // Home, or one bot's thread (screens.ts). Closing the notch comes Home.
+  const [screen, setScreen] = useState<NotchScreen>(HOME);
+  useEffect(() => {
+    if (!expanded) setScreen(HOME);
+  }, [expanded]);
   const [answering, setAnswering] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [soundOn, setSoundOn] = useState(soundEnabled);
@@ -308,12 +320,19 @@ export function NotchApp({
           for (const f of turns) finishedDone.mutate(f.id);
         }
       }
-      setComposer(null);
+      // In a thread the box stays, empty, for the next line.
+      setComposer((c) =>
+        c && target.kind === "message" && isAgentScreen(screenRef.current)
+          ? { ...c, text: "" }
+          : null,
+      );
       refresh();
     },
     onError: (err) =>
       setError(err instanceof Error ? err.message : "Could not send that"),
   });
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
 
   const setVoiceSession = useVoice(setComposer, setError);
   const [talking, setTalking] = useState(false);
@@ -344,14 +363,22 @@ export function NotchApp({
     t.release();
     return true;
   }, []);
-  const openComposer = useCallback(
-    (target: ReplyTarget) =>
-      setComposer({ target, text: "", listening: false }),
-    [],
-  );
+  // A message to a bot opens its thread with the box ready; a card's
+  // answer keeps the box on Home, under the card.
+  const openComposer = useCallback((target: ReplyTarget) => {
+    setComposer({ target, text: "", listening: false });
+    const next = screenForTarget(target);
+    if (next) setScreen(next);
+  }, []);
   const cancelComposer = useCallback(() => {
     setVoice(false);
     setComposer(null);
+    setScreen(HOME);
+  }, [setVoice]);
+  const goHome = useCallback(() => {
+    setVoice(false);
+    setComposer(null);
+    setScreen(HOME);
   }, [setVoice]);
 
   const leadTarget = useCallback((): ReplyTarget | null => {
@@ -426,6 +453,7 @@ export function NotchApp({
     openFull,
     close: () => {
       if (talk.phase !== "idle" || talk.said) talk.end();
+      else if (isAgentScreen(screen)) goHome();
       else if (composer) cancelComposer();
       else if (inApp) postNative({ type: "collapse" });
       else setExpanded(false);
@@ -461,6 +489,11 @@ export function NotchApp({
         line={line}
         peeker={peeker}
         lessonStep={lessonStep}
+        screen={screen}
+        onBack={goHome}
+        onStop={(slug) =>
+          void stopBot(slug).catch(() => setError("Could not stop it"))
+        }
         voice={talk.available || talk.phase !== "idle" ? talk : undefined}
         onPermission={(kind) => void requestPermission(kind)}
         onLessonPracticed={() => lessonEvent("practiced")}
