@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import { captureScreen } from "../api";
 import { play } from "../sounds";
 import {
   browserHost,
@@ -31,7 +32,10 @@ export interface RealtimeTalk {
  * office answers out loud. Otherwise `available` is false and the notch
  * keeps its dictation into the reply box.
  */
-export function useRealtime(enabled: boolean): RealtimeTalk {
+export function useRealtime(
+  enabled: boolean,
+  screenCapture = false,
+): RealtimeTalk {
   const status = useQuery({
     queryKey: ["realtime-status"],
     queryFn: getRealtimeStatus,
@@ -47,6 +51,10 @@ export function useRealtime(enabled: boolean): RealtimeTalk {
   const [said, setSaid] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const client = useRef<RealtimeClient | null>(null);
+  // Whether the office may take a picture of the screen (the Mac app, with
+  // Screen Recording granted); read at key-up, so it follows the state.
+  const captureRef = useRef(screenCapture);
+  captureRef.current = screenCapture;
 
   const ensure = useCallback(() => {
     if (client.current || !host.current) return client.current;
@@ -61,6 +69,12 @@ export function useRealtime(enabled: boolean): RealtimeTalk {
         onHeard: (t) => setHeard(t),
         onSaid: (t) => setSaid(t),
         onError: (m) => setError(m),
+        snapshot: () =>
+          captureRef.current
+            ? captureScreen()
+                .then((r) => r.data_url || null)
+                .catch(() => null)
+            : Promise.resolve(null),
       },
       runOfficeTool,
     );

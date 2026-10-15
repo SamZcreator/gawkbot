@@ -38,6 +38,12 @@ export type ToolRunner = (name: string, args: unknown) => Promise<unknown>;
 
 export interface RealtimeEvents {
   onPhase: (phase: RealtimePhase) => void;
+  /**
+   * One picture of what is in front, taken when the key comes up and
+   * sent with the words, so "what is this PR waiting on?" has the page
+   * to look at. Absent, or resolving to null, nothing is attached.
+   */
+  snapshot?: () => Promise<string | null>;
   /** What the voice heard, once it is sure. */
   onHeard?: (text: string) => void;
   /** What the voice said, once it has finished saying it. */
@@ -47,6 +53,8 @@ export interface RealtimeEvents {
 
 /** How long a quiet session stays open before it closes itself. */
 export const IDLE_CLOSE_MS = 90_000;
+/** How long the answer waits for the screenshot before going without it. */
+export const SNAPSHOT_WAIT_MS = 1_500;
 
 export function getRealtimeStatus() {
   return get<RealtimeStatus>("/realtime/status");
@@ -153,9 +161,33 @@ export class RealtimeClient {
     if (!this.channel || this.phase !== "listening") return;
     this.setMic(false);
     this.send({ type: "input_audio_buffer.commit" });
-    this.send({ type: "response.create" });
     this.setPhase("thinking");
     this.touch();
+    void this.answerWithSnapshot();
+  }
+
+  /** Attaches the picture when there is one within the wait, then asks for the answer. */
+  private async answerWithSnapshot(): Promise<void> {
+    const take = this.events.snapshot;
+    if (take) {
+      const picture = await Promise.race([
+        take().catch(() => null),
+        new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), SNAPSHOT_WAIT_MS),
+        ),
+      ]);
+      if (picture && this.channel) {
+        this.send({
+          type: "conversation.item.create",
+          item: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_image", image_url: picture }],
+          },
+        });
+      }
+    }
+    this.send({ type: "response.create" });
   }
 
   /** Ends the session now (Esc, the notch closing, quitting). */

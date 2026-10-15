@@ -348,7 +348,10 @@ export function NotchApp({
   );
   useAnnounce(state, talking);
   // Talking to the office out loud, when the office has a key for it.
-  const talk = useRealtime(expanded);
+  const talk = useRealtime(
+    expanded,
+    state?.capabilities?.screen_capture === true,
+  );
   const talkRef = useRef(talk);
   talkRef.current = talk;
   const talkKey = useCallback((on: boolean): boolean => {

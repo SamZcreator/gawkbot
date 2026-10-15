@@ -162,6 +162,7 @@ describe("talking to the office out loud", () => {
     expect(s.phases).toEqual(["connecting", "listening"]);
     expect(s.track.enabled).toBe(true);
     s.client.release();
+    await flush();
     expect(s.track.enabled).toBe(false);
     expect(s.peer.channel.sent.map((e) => e.type)).toEqual([
       "input_audio_buffer.commit",
@@ -174,6 +175,7 @@ describe("talking to the office out loud", () => {
     const s = setup();
     await s.client.hold();
     s.client.release();
+    await flush();
     s.peer.channel.serverSays({
       type: "conversation.item.input_audio_transcription.completed",
       transcript: " who needs me? ",
@@ -199,6 +201,7 @@ describe("talking to the office out loud", () => {
     const s = setup();
     await s.client.hold();
     s.client.release();
+    await flush();
     s.peer.channel.serverSays({
       type: "response.function_call_arguments.done",
       name: "get_office_state",
@@ -238,11 +241,13 @@ describe("talking to the office out loud", () => {
     const s = setup();
     await s.client.hold();
     s.client.release();
+    await flush();
     s.peer.channel.serverSays({ type: "response.output_audio.delta" });
     await s.client.hold();
     expect(s.peer.channel.sent.map((e) => e.type)).toContain("response.cancel");
     expect(s.client.current).toBe("listening");
     s.client.release();
+    await flush();
     s.peer.channel.serverSays({
       type: "response.done",
       response: { output: [] },
@@ -251,6 +256,50 @@ describe("talking to the office out loud", () => {
     await vi.advanceTimersByTimeAsync(IDLE_CLOSE_MS + 10);
     expect(s.peer.closed).toBe(true);
     expect(s.track.stopped).toBe(true);
+  });
+
+  it("sends the picture of the screen with the words when one can be taken", async () => {
+    const f = fakeHost();
+    const client = new RealtimeClient(
+      f.host,
+      {
+        onPhase: () => {},
+        snapshot: () => Promise.resolve("data:image/png;base64,AAAA"),
+      },
+      () => Promise.resolve({}),
+    );
+    await client.hold();
+    client.release();
+    await flush();
+    const types = f.peer.channel.sent.map((e) => e.type);
+    expect(types).toEqual([
+      "input_audio_buffer.commit",
+      "conversation.item.create",
+      "response.create",
+    ]);
+    const item = f.peer.channel.sent[1].item as {
+      role: string;
+      content: Array<{ type: string; image_url: string }>;
+    };
+    expect(item.role).toBe("user");
+    expect(item.content[0]).toEqual({
+      type: "input_image",
+      image_url: "data:image/png;base64,AAAA",
+    });
+    // A picture that cannot be taken costs nothing: the answer still comes.
+    const g = fakeHost();
+    const bare = new RealtimeClient(
+      g.host,
+      { onPhase: () => {}, snapshot: () => Promise.reject(new Error("no")) },
+      () => Promise.resolve({}),
+    );
+    await bare.hold();
+    bare.release();
+    await flush();
+    expect(g.peer.channel.sent.map((e) => e.type)).toEqual([
+      "input_audio_buffer.commit",
+      "response.create",
+    ]);
   });
 
   it("reports a failed connection and ends up idle", async () => {

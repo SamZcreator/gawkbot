@@ -32,6 +32,13 @@ Speaking, then what was heard and what was said. Pressing the key over an
 answer cuts it off. Esc ends the session; a quiet session closes itself
 after 90 seconds.
 
+When the Mac app holds Screen Recording, letting go of the key also
+sends one picture of the screen with the words (`POST
+/notch/screen/capture`, as an `input_image` item), so "what is this PR
+waiting on?" has the page to look at. It is taken only at key-up, never
+on a timer, and never kept; if it takes longer than a moment, the answer
+goes without it.
+
 The voice is the notch, not a bot. It answers office questions itself,
 answers a card when told the choice, and passes work to the lead:
 
@@ -67,5 +74,5 @@ talk key is down or the switch is off.
 
 ## Not yet
 
-The screenshot attached on key press, pointing while it speaks,
-hands-free mode with semantic turn detection, and a speed picker.
+Pointing while it speaks, hands-free mode with semantic turn detection,
+and a speed picker.
