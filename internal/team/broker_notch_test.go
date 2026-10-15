@@ -419,6 +419,35 @@ func TestNotchCarriesTheEndOfTheLeadConversationForTheOwnerOnly(t *testing.T) {
 
 // The notch learns the person's one "stay in the notch" switch from the same
 // poll it already makes, so turning it off in Settings needs no restart.
+func TestNotchStateCarriesTheAnnounceSetting(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+	t.Setenv("WUPHF_RUNTIME_HOME", tmp)
+	b := newTestBroker(t)
+	read := func() any {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		b.handleNotchState(rec, httptest.NewRequest(http.MethodGet, "/notch/state", nil))
+		var out map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		return out["announce"]
+	}
+	if got := read(); got != true {
+		t.Fatalf("never chosen: announce = %v, want true", got)
+	}
+	cfg, _ := config.Load()
+	off := false
+	cfg.NotchAnnounceEnabled = &off
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+	if got := read(); got != false {
+		t.Fatalf("turned off: announce = %v, want false on the very next poll", got)
+	}
+}
+
 func TestNotchStateCarriesTheJumpOutSetting(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)

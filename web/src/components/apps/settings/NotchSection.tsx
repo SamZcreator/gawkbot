@@ -17,6 +17,7 @@ import type { NotchSectionProps } from "./notchConfig";
 export function NotchSection({ cfg, save }: NotchSectionProps) {
   const jumpOut = cfg.notch_jump_out !== false;
   const alwaysAllow = cfg.mac_computer_always_allow === true;
+  const announce = cfg.notch_announce !== false;
 
   return (
     <div className="settings-page">
@@ -38,6 +39,21 @@ export function NotchSection({ cfg, save }: NotchSectionProps) {
               checked={jumpOut}
               onChange={(e) => void save({ notch_jump_out: e.target.checked })}
               data-testid="settings-notch-jump-out-toggle"
+            />
+          </label>
+        </Field>
+        <Field
+          label="Speaking up"
+          hint="One line out loud, in the Mac's own voice, when a bot needs you or finishes. Never while you are holding the talk key."
+        >
+          <label className="settings-switch-label">
+            <span>Bots say so when they need you or finish</span>
+            <input
+              type="checkbox"
+              className="switch"
+              checked={announce}
+              onChange={(e) => void save({ notch_announce: e.target.checked })}
+              data-testid="settings-notch-announce-toggle"
             />
           </label>
         </Field>

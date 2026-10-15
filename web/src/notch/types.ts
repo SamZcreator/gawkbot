@@ -204,6 +204,8 @@ export interface NotchState {
    * send it means on.
    */
   jump_out?: boolean;
+  /** Bots speak up out loud when they need you or finish. On unless false. */
+  announce?: boolean;
   /**
    * The app and window in front of the owner, read a second at a time only
    * while the notch says it is open (the poll's open=1), never stored.

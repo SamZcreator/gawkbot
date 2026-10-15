@@ -22,6 +22,7 @@ export const EXPANDED_HEIGHT = 820;
 //   { type: "sound", on }                      the sound toggle, so native
 //                                              can mirror it if it ever plays
 //   { type: "browse", url }                    open an https page in the browser
+//   { type: "say", text } / { type: "hush" }   speak a line (AVSpeechSynthesizer), stop it
 //
 // Native → page, via evaluateJavaScript:
 //   window.gawkNotch.setExpanded(boolean)
@@ -48,7 +49,10 @@ export type NativeMessage =
   /** Draw on the screen, or clear it when the scene is null. */
   | { type: "overlay"; scene: OverlayScene | null }
   /** Open an https page in the default browser (a sign-in page). */
-  | { type: "browse"; url: string };
+  | { type: "browse"; url: string }
+  /** Say a line out loud in the Mac's voice; hush stops it mid-word. */
+  | { type: "say"; text: string }
+  | { type: "hush" };
 
 interface WebkitHandlers {
   webkit?: {

@@ -115,6 +115,9 @@ type Config struct {
 	// an agent peeking out, the banter, the fly-in. Default ON (nil). Off
 	// keeps the notch still; it still shows who needs you and how many.
 	NotchJumpOutEnabled *bool `json:"notch_jump_out,omitempty"`
+	// NotchAnnounceEnabled lets bots speak up out loud: one line when a
+	// new card needs you, one when a turn finishes. Default ON (nil).
+	NotchAnnounceEnabled *bool `json:"notch_announce,omitempty"`
 	// MacComputerAlwaysAllow lets bots click and type on this Mac without
 	// asking first each turn. Off until the person says "always allow".
 	MacComputerAlwaysAllow *bool `json:"mac_computer_always_allow,omitempty"`
@@ -720,6 +723,12 @@ func (c Config) IsAnalyticsTelemetryEnabled() bool {
 // attention. Default ON when never chosen (nil).
 func (c Config) IsNotchJumpOutEnabled() bool {
 	return c.NotchJumpOutEnabled == nil || *c.NotchJumpOutEnabled
+}
+
+// IsNotchAnnounceEnabled reports whether bots speak up out loud when they
+// need you or finish. Default ON when never chosen (nil).
+func (c Config) IsNotchAnnounceEnabled() bool {
+	return c.NotchAnnounceEnabled == nil || *c.NotchAnnounceEnabled
 }
 
 // IsMacComputerAlwaysAllowed reports whether bots on this Mac may act

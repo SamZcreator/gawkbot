@@ -8,6 +8,8 @@ import type { ConfigSnapshot, ConfigUpdate } from "../../../api/client";
 export interface NotchConfig {
   /** Bots act on this Mac without asking each turn; default false. */
   mac_computer_always_allow?: boolean;
+  /** Bots speak up out loud when they need you or finish; default true. */
+  notch_announce?: boolean;
 }
 
 export type NotchConfigSnapshot = ConfigSnapshot & NotchConfig;

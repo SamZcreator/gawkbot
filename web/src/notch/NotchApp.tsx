@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { hush } from "./announce";
 import { boredom as boredomOf, gang as gangOf } from "./antics";
 import {
   answerRequest,
@@ -44,6 +45,7 @@ import { finishedSlugs } from "./order";
 import { drawOnScreen, relayOverlay } from "./overlay";
 import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
 import type { NotchState } from "./types";
+import { useAnnounce } from "./useAnnounce";
 import { deliverNativeVoice, voiceAvailable } from "./voice";
 
 export { moodTransitions, newAttentionIds } from "./hooks";
@@ -295,7 +297,18 @@ export function NotchApp({
       setError(err instanceof Error ? err.message : "Could not send that"),
   });
 
-  const setVoice = useVoice(setComposer, setError);
+  const setVoiceSession = useVoice(setComposer, setError);
+  const [talking, setTalking] = useState(false);
+  // The talk key: while it is down the notch listens and says nothing.
+  const setVoice = useCallback(
+    (on: boolean) => {
+      setTalking(on);
+      if (on) hush();
+      setVoiceSession(on);
+    },
+    [setVoiceSession],
+  );
+  useAnnounce(state, talking);
   const openComposer = useCallback(
     (target: ReplyTarget) =>
       setComposer({ target, text: "", listening: false }),

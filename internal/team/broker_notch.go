@@ -187,6 +187,9 @@ type notchState struct {
 	// attention (it opening by itself, a peek, a fly-in, chatter). The
 	// notch reads it on every poll, so a change in Settings needs no restart.
 	JumpOut bool `json:"jump_out"`
+	// Announce is whether bots speak up out loud when they need you or
+	// finish. Read on every poll like JumpOut.
+	Announce bool `json:"announce"`
 	// Screen is what the owner has in front of them, only while the notch
 	// says it is open (broker_host_computer.go). Owner only, never stored.
 	Screen *notchScreen `json:"screen,omitempty"`
@@ -238,6 +241,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()
 	state.JumpOut = cfg.IsNotchJumpOutEnabled()
+	state.Announce = cfg.IsNotchAnnounceEnabled()
 	writeJSON(w, http.StatusOK, state)
 }
 

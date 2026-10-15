@@ -147,6 +147,9 @@ static const CGFloat kMaxStageHeight = 160.0;
 @property(nonatomic, strong) id speechTask;
 @property(nonatomic, strong) AVAudioEngine *audioEngine;
 @property(nonatomic) BOOL voiceActive;
+// Speaking up: one synthesizer, one line at a time; a new line replaces
+// the one being said. Typed as id for the same reason as the recognizer.
+@property(nonatomic, strong) id speaker;
 // Widget-only mode: with the main window closed the app is just the notch,
 // so it leaves the Dock; opening the full view brings the Dock icon back.
 @property(nonatomic, strong) NSTimer *dockWatch;
@@ -754,6 +757,11 @@ void GawkDockSuppress(int suppressed);
 				GawkOverlaySetScene(text.UTF8String);
 			}
 		}
+	} else if ([type isEqualToString:@"say"]) {
+		NSString *text = [body[@"text"] isKindOfClass:[NSString class]] ? body[@"text"] : @"";
+		[self say:text];
+	} else if ([type isEqualToString:@"hush"]) {
+		[self hush];
 	} else if ([type isEqualToString:@"browse"]) {
 		// A sign-in page for an integration: the default browser, https only.
 		NSString *raw = [body[@"url"] isKindOfClass:[NSString class]] ? body[@"url"] : @"";
@@ -818,6 +826,39 @@ static BOOL gawkOwnsItsPrivacyPrompts(void) {
 	[self.webView evaluateJavaScript:js completionHandler:nil];
 }
 
+#pragma mark Speaking up
+
+// Says one line in the Mac's own voice (the system's choice for the
+// current language). A line already being said is cut off: the newer
+// one is the news. Nothing here needs a permission.
+- (void)say:(NSString *)text {
+	NSString *line = [text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+	if (line.length == 0) {
+		return;
+	}
+	if (@available(macOS 10.14, *)) {
+		if (self.speaker == nil) {
+			self.speaker = [[AVSpeechSynthesizer alloc] init];
+		}
+		AVSpeechSynthesizer *speaker = self.speaker;
+		if (speaker.isSpeaking) {
+			[speaker stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+		}
+		AVSpeechUtterance *utterance = [AVSpeechUtterance speechUtteranceWithString:line];
+		utterance.voice = [AVSpeechSynthesisVoice voiceWithLanguage:[AVSpeechSynthesisVoice currentLanguageCode]];
+		[speaker speakUtterance:utterance];
+	}
+}
+
+- (void)hush {
+	if (@available(macOS 10.14, *)) {
+		AVSpeechSynthesizer *speaker = self.speaker;
+		if (speaker != nil && speaker.isSpeaking) {
+			[speaker stopSpeakingAtBoundary:AVSpeechBoundaryImmediate];
+		}
+	}
+}
+
 - (void)voiceFailed:(NSString *)message {
 	[self sendVoice:@"error" text:nil message:message];
 	[self finishVoice];
@@ -830,6 +871,8 @@ static BOOL gawkOwnsItsPrivacyPrompts(void) {
 		return;
 	}
 	self.voiceActive = YES;
+	// The person is about to talk: nothing talks over them.
+	[self hush];
 	if (!gawkOwnsItsPrivacyPrompts()) {
 		[self voiceFailed:@"Voice needs gawkbot opened as an app, from Finder, the Dock, or the open command. Started from a terminal, macOS asks that terminal for permission instead and stops gawkbot."];
 		return;

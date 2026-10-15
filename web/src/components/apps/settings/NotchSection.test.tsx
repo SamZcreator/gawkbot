@@ -1,12 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ConfigSnapshot } from "../../../api/client";
 import { NotchSection } from "./NotchSection";
+import type { NotchConfigSnapshot } from "./notchConfig";
 
 const TOGGLE = "settings-notch-jump-out-toggle";
 
-function renderSection(cfg: ConfigSnapshot) {
+function renderSection(cfg: NotchConfigSnapshot) {
   const save = vi.fn().mockResolvedValue(undefined);
   render(<NotchSection cfg={cfg} save={save} />);
   return { save, toggle: screen.getByTestId(TOGGLE) as HTMLInputElement };
@@ -32,5 +32,15 @@ describe("NotchSection", () => {
     const { save, toggle } = renderSection({ notch_jump_out: false });
     fireEvent.click(toggle);
     expect(save).toHaveBeenCalledWith({ notch_jump_out: true });
+  });
+
+  it("speaking up is on unless chosen off, and saves only itself", () => {
+    const { save } = renderSection({ notch_announce: false });
+    const toggle = screen.getByTestId(
+      "settings-notch-announce-toggle",
+    ) as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(save).toHaveBeenCalledWith({ notch_announce: true });
   });
 });
