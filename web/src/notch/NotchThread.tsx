@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getMessages, type Message } from "../api/client";
+import { announceOn } from "./announce";
 import { markRead } from "./api";
 import { NotchBot } from "./NotchBot";
 import { Composer } from "./NotchComposer";
@@ -9,6 +10,7 @@ import type { ComposerState, PanelProps } from "./NotchPanel";
 import { sinceShort } from "./NotchPanel";
 import type { NotchScreen } from "./screens";
 import type { NotchState } from "./types";
+import { useThreadVoice } from "./useThreadVoice";
 
 export const THREAD_QUERY_PREFIX = "notch-thread";
 const THREAD_LINES = 60;
@@ -31,6 +33,8 @@ export interface NotchThreadProps {
   onOpen: (path: string) => void;
   /** Stops this bot's running turns. */
   onStop: (slug: string) => void;
+  /** The talk key is down: the bot's new lines wait, unspoken. */
+  talking?: boolean;
 }
 
 /** Whether a message is the person's own. */
@@ -71,6 +75,8 @@ export function NotchThread(props: NotchThreadProps) {
   useEffect(() => {
     if (newest) void markRead(screen.channel, newest).catch(() => undefined);
   }, [newest, screen.channel]);
+  // The bot talks back: its new lines are read out loud as they land.
+  useThreadVoice(lines, announceOn(state), props.talking === true);
   const working = agent?.mood === "working";
   const name = agent?.name ?? screen.name;
   const now = Date.now();

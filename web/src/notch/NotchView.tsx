@@ -28,6 +28,8 @@ export type NotchViewProps = Omit<StripProps, "expanded"> &
     screen?: NotchScreen;
     onBack?: () => void;
     onStop?: (slug: string) => void;
+    /** The talk key is down (NotchApp): threads keep quiet meanwhile. */
+    talking?: boolean;
   };
 
 export function collapsedWidth(g: NotchGeometry): number {
@@ -155,6 +157,7 @@ export function NotchView(props: NotchViewProps) {
                     onBack={props.onBack ?? (() => undefined)}
                     onOpen={props.onOpen}
                     onStop={props.onStop ?? (() => undefined)}
+                    talking={props.talking}
                   />
                 </div>
               </div>
@@ -173,6 +176,7 @@ export function NotchView(props: NotchViewProps) {
                 onBack={props.onBack ?? (() => undefined)}
                 onOpen={props.onOpen}
                 onStop={props.onStop ?? (() => undefined)}
+                talking={props.talking}
               />
             )
           ) : expanded ? (

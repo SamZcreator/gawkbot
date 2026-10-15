@@ -60,8 +60,12 @@ first look is not news; nothing is said while the talk key is down, and
 what arrived meanwhile is on screen, not repeated. One switch in
 Settings, Notch ("Speaking up"), on unless chosen off, read on every poll.
 
+In an open thread the bot talks back the same way: each new line it
+writes is read out loud as it lands (`useThreadVoice`). The lines already
+there when the thread opens stay quiet, and so does everything while the
+talk key is down or the switch is off.
+
 ## Not yet
 
-Reading a bot's reply back in its own voice, the screenshot attached on
-key press, pointing while it speaks, hands-free mode with semantic turn
-detection, the voice and speed pickers in the notch's own settings.
+The screenshot attached on key press, pointing while it speaks,
+hands-free mode with semantic turn detection, and a speed picker.

@@ -493,6 +493,7 @@ export function NotchApp({
         lessonStep={lessonStep}
         screen={screen}
         onSettings={() => setScreen(SETTINGS)}
+        talking={talking}
         onBack={goHome}
         onStop={(slug) =>
           void stopBot(slug).catch(() => setError("Could not stop it"))
