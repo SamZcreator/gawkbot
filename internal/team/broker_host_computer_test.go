@@ -15,11 +15,12 @@ import (
 
 // fakeMacDriver answers the driver tools the notch reads.
 type fakeMacDriver struct {
-	mu      sync.Mutex
-	perms   hostcomputer.Permissions
-	front   string
-	calls   []string
-	picture []byte
+	mu       sync.Mutex
+	perms    hostcomputer.Permissions
+	front    string
+	calls    []string
+	picture  []byte
+	elements []hostcomputer.Element
 }
 
 func (f *fakeMacDriver) Call(_ context.Context, tool string, _ map[string]any) (hostcomputer.Result, error) {
@@ -38,6 +39,10 @@ func (f *fakeMacDriver) Call(_ context.Context, tool string, _ map[string]any) (
 		return hostcomputer.Result{Structured: raw(map[string]any{"windows": []map[string]any{
 			{"window_id": 7, "pid": 42, "app_name": f.front, "title": "PR #4097", "z_index": 3, "is_on_screen": true},
 		}})}, nil
+	case "get_window_state":
+		return hostcomputer.Result{Structured: raw(map[string]any{"elements": f.elements})}, nil
+	case "start_session", "move_cursor":
+		return hostcomputer.Result{Text: "ok"}, nil
 	case "get_desktop_state":
 		if !f.perms.ScreenRecording {
 			return hostcomputer.Result{Text: "Screen Recording: not granted", IsError: true}, nil

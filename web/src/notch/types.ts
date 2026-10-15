@@ -144,6 +144,41 @@ export interface NotchCapabilities {
   mac_computer: boolean;
 }
 
+/** A box on the screen, in global points with the origin at the top-left. */
+export interface OverlayRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** One drawing on the screen (internal/hostcomputer/scene.go). */
+export interface OverlayItem {
+  kind: "pointer" | "label" | "arrow" | "circle" | "box";
+  x?: number;
+  y?: number;
+  text?: string;
+  label?: string;
+  color?: string;
+  from?: OverlayRect;
+  to?: OverlayRect;
+  rect?: OverlayRect;
+}
+
+/** What to draw over the screen; it fades after ttl_ms. */
+export interface OverlayScene {
+  id?: string;
+  ttl_ms?: number;
+  color?: string;
+  items: OverlayItem[];
+}
+
+/** The drawing waiting for the app: a new seq means draw (or clear when the scene is null). */
+export interface NotchOverlay {
+  seq: number;
+  scene: OverlayScene | null;
+}
+
 export interface NotchState {
   lead?: string;
   lead_name?: string;
@@ -179,6 +214,8 @@ export interface NotchState {
   permissions?: NotchPermissions;
   /** What the notch may offer. Owner only. */
   capabilities?: NotchCapabilities;
+  /** A drawing waiting for the Mac app's screen. Owner only. */
+  overlay?: NotchOverlay;
 }
 
 /** Physical notch geometry, in CSS px, handed over by the native shell. */

@@ -1,4 +1,4 @@
-import type { NotchGeometry, NotchHotkey } from "./types";
+import type { NotchGeometry, NotchHotkey, OverlayScene } from "./types";
 
 /** The open panel's size outside the Mac app, which sends its own. */
 export const EXPANDED_WIDTH = 640;
@@ -41,7 +41,9 @@ export type NativeMessage =
   | { type: "stage"; height: number }
   | { type: "ears"; width: number; band: number }
   /** Ask macOS for a grant; the app shows the prompt, the driver never does. */
-  | { type: "permission"; kind: "accessibility" | "screen_recording" };
+  | { type: "permission"; kind: "accessibility" | "screen_recording" }
+  /** Draw on the screen, or clear it when the scene is null. */
+  | { type: "overlay"; scene: OverlayScene | null };
 
 interface WebkitHandlers {
   webkit?: {

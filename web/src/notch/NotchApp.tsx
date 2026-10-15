@@ -40,6 +40,7 @@ import {
 import { stageHeight, stripShapeFor } from "./NotchStrip";
 import { NotchView } from "./NotchView";
 import { finishedSlugs } from "./order";
+import { drawOnScreen, relayOverlay } from "./overlay";
 import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
 import type { NotchState } from "./types";
 import { deliverNativeVoice, voiceAvailable } from "./voice";
@@ -104,6 +105,15 @@ export function NotchApp({
     refetchIntervalInBackground: true,
   });
   const state = query.data ?? null;
+  // Drawings the office left for the screen go to the app once each.
+  const drawnSeq = useRef(0);
+  useEffect(() => {
+    drawnSeq.current = relayOverlay(
+      drawnSeq.current,
+      state?.overlay,
+      drawOnScreen,
+    );
+  }, [state?.overlay]);
   const attention = useMemo(() => state?.attention ?? [], [state]);
   const agents = useMemo(() => state?.agents ?? [], [state]);
   // Every card the keyboard moves through, in the order the panel shows

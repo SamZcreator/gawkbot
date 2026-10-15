@@ -666,6 +666,8 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 
 void GawkRequestAccessibility(void);
 void GawkRequestScreenCapture(void);
+void GawkOverlaySetScene(const char *json);
+void GawkOverlayClear(void);
 
 #pragma mark Page → native
 
@@ -720,6 +722,19 @@ void GawkRequestScreenCapture(void);
 			GawkRequestAccessibility();
 		} else if ([kind isEqualToString:@"screen_recording"]) {
 			GawkRequestScreenCapture();
+		}
+	} else if ([type isEqualToString:@"overlay"]) {
+		// A drawing for the screen (overlay_darwin.m): the page relays what
+		// the office computed, since only this process can draw.
+		NSDictionary *scene = [body[@"scene"] isKindOfClass:[NSDictionary class]] ? body[@"scene"] : nil;
+		if (scene == nil) {
+			GawkOverlayClear();
+		} else {
+			NSData *json = [NSJSONSerialization dataWithJSONObject:scene options:0 error:nil];
+			if (json != nil) {
+				NSString *text = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
+				GawkOverlaySetScene(text.UTF8String);
+			}
 		}
 	} else if ([type isEqualToString:@"collapse"]) {
 		self.pinned = NO;

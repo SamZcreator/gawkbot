@@ -194,6 +194,9 @@ type notchState struct {
 	Permissions *notchPermissions `json:"permissions,omitempty"`
 	// Capabilities say which features the notch may offer. Owner only.
 	Capabilities *notchCapabilities `json:"capabilities,omitempty"`
+	// Overlay is the drawing waiting for the Mac app's screen, if any
+	// (broker_notch_overlay.go). Owner only.
+	Overlay *notchOverlay `json:"overlay,omitempty"`
 }
 
 func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {

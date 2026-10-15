@@ -109,6 +109,17 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
   message. Developers without a packaged build point `WUPHF_CUA_DRIVER` at a
   driver binary.
 
+- **Drawing on the screen**: `overlay_darwin.m` keeps one transparent,
+  click-through window per display above menus and popups and paints a
+  scene (pointers, labels, arrows, circles, boxes, in global screen points,
+  fading after its time; still under reduced motion). Scenes are computed
+  by the office (`POST /notch/overlay`, `POST /notch/point`, which finds a
+  control by a few words in the window in front through the driver's
+  accessibility read and glides the guide cursor to it) and reach the app
+  through the notch page: in the reply, and as `overlay` on the notch state
+  with a sequence the page draws once. A harness for the native part lives
+  outside the repo (`clang ... -DGAWK_OVERLAY_TRACE overlay_darwin.m`).
+
 Data is one poll of `GET /notch/state` (`internal/team/broker_notch.go`).
 The page↔native contract is in `web/src/notch/bridge.ts`. The panel refuses
 navigation off the office origin, and "open in app" accepts only in-app paths

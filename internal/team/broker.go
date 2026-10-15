@@ -725,6 +725,9 @@ func (b *Broker) StartOnPort(port int) error {
 	mux.HandleFunc("/notch/permissions/request", b.requireAuth(b.handleNotchPermissionRequest))
 	// The Mac app attached to this office registers its driver here.
 	mux.HandleFunc("/host-computer/attach", b.requireAuth(b.handleHostComputerAttach))
+	// Drawing on the owner's screen and pointing at controls (broker_notch_overlay.go).
+	mux.HandleFunc("/notch/overlay", b.requireAuth(b.handleNotchOverlay))
+	mux.HandleFunc("/notch/point", b.requireAuth(b.handleNotchPoint))
 	mux.HandleFunc("/channels", b.requireAuth(b.handleChannels))
 	mux.HandleFunc("/channels/dm", b.requireAuth(b.handleCreateDM))
 	mux.HandleFunc("/channels/generate", b.requireAuth(b.handleGenerateChannel))

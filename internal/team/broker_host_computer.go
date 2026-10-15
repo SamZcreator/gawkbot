@@ -86,6 +86,10 @@ type hostComputerState struct {
 	watching  bool
 	perms     hostcomputer.Permissions
 	permsAt   time.Time
+	// scene is the drawing waiting for the notch page; sceneSeq changes
+	// with every set or clear so the page draws each one once.
+	scene    *hostcomputer.Scene
+	sceneSeq int
 }
 
 // SetHostComputer installs (or, with nil, removes) the person's Mac.
@@ -184,6 +188,7 @@ func (b *Broker) withNotchHost(ctx context.Context, state notchState, owner bool
 	if hc == nil {
 		return state
 	}
+	state.Overlay = b.pendingOverlay()
 	status := hc.Status()
 	if !status.Ready {
 		return state
