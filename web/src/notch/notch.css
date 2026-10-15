@@ -2176,3 +2176,104 @@ kbd {
   font-size: 12px;
   color: var(--notch-text-tertiary);
 }
+
+/* Suggested for you: one idea card at a time, a character and its promise. */
+.nideas {
+  display: grid;
+  gap: 6px;
+}
+.nidea {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--notch-card-radius);
+  background: var(--notch-glass);
+  box-shadow: inset 0 0 0 0.5px var(--notch-hairline);
+}
+.nidea-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.nidea-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.nidea-text b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.nidea-text small {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--notch-text-tertiary);
+}
+.nidea-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--notch-control);
+  color: var(--notch-text-secondary);
+  font-weight: 600;
+}
+.nidea-badge img {
+  border-radius: 3px;
+}
+.nidea-nav {
+  display: inline-flex;
+  gap: 2px;
+}
+.nidea-promise {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--notch-text);
+}
+.nidea-why,
+.nidea-when {
+  margin: 0;
+  font-size: 12px;
+  color: var(--notch-text-secondary);
+}
+.nidea-when::before {
+  content: "↻ ";
+  color: var(--notch-text-tertiary);
+}
+.nidea-source-toggle {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--notch-text-tertiary);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.nidea-source ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+  font-size: 11px;
+  color: var(--notch-text-tertiary);
+}
+.nidea-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--notch-danger-ink);
+}
+.nidea-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.nidea-made {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+.nidea-made .nidea-actions {
+  grid-column: 1 / -1;
+}

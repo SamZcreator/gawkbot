@@ -207,6 +207,9 @@ func (b *Broker) handleConfig(w http.ResponseWriter, r *http.Request) {
 			"notch_jump_out": cfg.IsNotchJumpOutEnabled(),
 			// Whether bots speak up out loud when they need you or finish.
 			"notch_announce": cfg.IsNotchAnnounceEnabled(),
+			// The daily look for bots worth having, and its local hour.
+			"notch_ideas":      cfg.IsNotchIdeasEnabled(),
+			"notch_ideas_hour": cfg.NotchIdeasHourOrDefault(),
 			// Whether bots on this Mac act without asking each turn.
 			"mac_computer_always_allow": cfg.IsMacComputerAlwaysAllowed(),
 			// Config file path (informational)
@@ -261,6 +264,8 @@ func (b *Broker) handleConfig(w http.ResponseWriter, r *http.Request) {
 			AnalyticsSessionRecording *bool `json:"analytics_session_recording_enabled,omitempty"`
 			NotchJumpOut              *bool `json:"notch_jump_out,omitempty"`
 			NotchAnnounce             *bool `json:"notch_announce,omitempty"`
+			NotchIdeas                *bool `json:"notch_ideas,omitempty"`
+			NotchIdeasHour            *int  `json:"notch_ideas_hour,omitempty"`
 			MacComputerAlwaysAllow    *bool `json:"mac_computer_always_allow,omitempty"`
 			// ProviderEndpoints is a partial-update map: keys present in
 			// the payload replace the corresponding entry; absent keys are
@@ -535,6 +540,15 @@ func (b *Broker) handleConfig(w http.ResponseWriter, r *http.Request) {
 		if body.NotchAnnounce != nil {
 			v := *body.NotchAnnounce
 			cfg.NotchAnnounceEnabled = &v
+			changed = true
+		}
+		if body.NotchIdeas != nil {
+			v := *body.NotchIdeas
+			cfg.NotchIdeasEnabled = &v
+			changed = true
+		}
+		if body.NotchIdeasHour != nil && *body.NotchIdeasHour >= 0 && *body.NotchIdeasHour <= 23 {
+			cfg.NotchIdeasHour = *body.NotchIdeasHour
 			changed = true
 		}
 		if body.MacComputerAlwaysAllow != nil {

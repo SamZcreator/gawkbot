@@ -14,6 +14,7 @@ import { NotchBot } from "./NotchBot";
 import { Composer } from "./NotchComposer";
 import { NotchHero } from "./NotchHero";
 import { NotchHint } from "./NotchHint";
+import { NotchIdeas } from "./NotchIdeas";
 import { LessonCard } from "./NotchLesson";
 import { NotchPermissionCard } from "./NotchPermissionCard";
 import { NotchVoiceLine } from "./NotchVoiceLine";
@@ -912,6 +913,9 @@ export function NotchPanel(props: PanelProps) {
             hint={state.hint}
             onOpen={props.onOpen}
           />
+        ) : null}
+        {state.ideas && state.ideas.items.length > 0 ? (
+          <NotchIdeas ideas={state.ideas} onOpen={props.onOpen} />
         ) : null}
         {needsYou > 0 ? (
           <section aria-label="Needs you">

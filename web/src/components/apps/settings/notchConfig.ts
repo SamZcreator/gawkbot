@@ -10,6 +10,9 @@ export interface NotchConfig {
   mac_computer_always_allow?: boolean;
   /** Bots speak up out loud when they need you or finish; default true. */
   notch_announce?: boolean;
+  /** The office looks for bots worth having once a day; default true, at 9. */
+  notch_ideas?: boolean;
+  notch_ideas_hour?: number;
 }
 
 export type NotchConfigSnapshot = ConfigSnapshot & NotchConfig;

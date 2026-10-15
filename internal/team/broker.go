@@ -145,6 +145,7 @@ type Broker struct {
 	notchSuggest        notchSuggestStore            // replies suggested for each notch card; own lock, in memory
 	notchHints          notchHintStore               // integration hints shown for what is in front; own lock, saved beside the state
 	notchRead           notchReadStore               // what the owner has read of each bot's thread; own lock, saved beside the state
+	notchIdeas          notchIdeasStore              // the daily ideas for new bots; own lock, saved beside the state
 	hostComputer        hostComputerState            // the person's own Mac, installed by the desktop shell; own lock
 	sessionAgents       sessionAgentState            // terminal sessions kept as members (broker_session_agents.go); guarded by mu
 	runtimeDefaultsMu   sync.Mutex                   // guards the three fields below; never held with mu
@@ -626,6 +627,7 @@ func (b *Broker) Start() error {
 		}
 	}()
 	b.startArchiveSweepLoop(ctx)
+	b.startNotchIdeasLoop(ctx)
 	b.startMemoryWorkflowReconcilerLoop(ctx)
 	// Lane D: reviewer convergence sweeper. Drives the timeout-skipped
 	// filler + the running→review→decision cascade for tasks whose
@@ -735,6 +737,10 @@ func (b *Broker) StartOnPort(port int) error {
 	mux.HandleFunc("/notch/hint/seen", b.requireAuth(b.handleNotchHintSeen))
 	mux.HandleFunc("/notch/hint/dismiss", b.requireAuth(b.handleNotchHintDismiss))
 	mux.HandleFunc("/notch/read", b.requireAuth(b.handleNotchRead))
+	mux.HandleFunc("/notch/ideas/seen", b.requireAuth(b.handleNotchIdeaSeen))
+	mux.HandleFunc("/notch/ideas/dismiss", b.requireAuth(b.handleNotchIdeaDismiss))
+	mux.HandleFunc("/notch/ideas/accept", b.requireAuth(b.handleNotchIdeaAccept))
+	mux.HandleFunc("/notch/ideas/scan", b.requireAuth(b.handleNotchIdeasScan))
 	mux.HandleFunc("/channels", b.requireAuth(b.handleChannels))
 	mux.HandleFunc("/channels/dm", b.requireAuth(b.handleCreateDM))
 	mux.HandleFunc("/channels/generate", b.requireAuth(b.handleGenerateChannel))

@@ -131,6 +131,39 @@ export function NotchSettings({ state, onBack, onOpen }: NotchSettingsProps) {
             testId="nset-announce"
           />
         </section>
+        <section className="nset-group" aria-label="Ideas">
+          <h3 className="nsection">Ideas</h3>
+          <SwitchRow
+            label="Look for bots worth having, once a day"
+            hint="Reads titles and subjects across the integrations you connected, never bodies, and proposes bots in the notch. Nothing is created without your yes."
+            checked={cfg.notch_ideas !== false}
+            onChange={(on) => save.mutate({ notch_ideas: on })}
+            testId="nset-ideas"
+          />
+          <label className="nset-row">
+            <span className="nset-text">
+              <b>At</b>
+              <small>
+                The local hour the look runs; caught up after sleep.
+              </small>
+            </span>
+            <select
+              className="nset-select"
+              value={String(cfg.notch_ideas_hour ?? 9)}
+              onChange={(e) =>
+                save.mutate({ notch_ideas_hour: Number(e.target.value) })
+              }
+              data-testid="nset-ideas-hour"
+              disabled={cfg.notch_ideas === false}
+            >
+              {Array.from({ length: 23 }, (_, i) => i + 1).map((h) => (
+                <option key={h} value={h}>
+                  {h}:00
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
         <section className="nset-group" aria-label="Voice">
           <h3 className="nsection">Voice</h3>
           <label className="nset-row">

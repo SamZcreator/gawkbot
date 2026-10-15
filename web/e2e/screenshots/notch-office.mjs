@@ -37,6 +37,17 @@ const STATE = {
   agents: AGENTS,
   jump_out: true, announce: true,
   screen: { app: "Google Chrome", bundle_id: "com.google.Chrome", domain: "mail.google.com" },
+  ideas: { enabled: true, checked_at: "2026-10-15T09:00:00Z", items: [
+    { id: "idea:aaa", fingerprint: "aaa", name: "Release Checker", role: "Reads what waits on the deploy", integration: "github", integration_name: "GitHub",
+      promise: "Before #4097 goes to production, I will read every change waiting on the deploy and call go or no go.",
+      rationale: "Two pull requests wait on it right now.", cadence: "0 9 * * 1-5", cadence_label: "Every weekday at 9:00, while this Mac is awake",
+      first_task: "Read #4097 and #4101 and say whether they are safe to ship.",
+      evidence: [{ id: "github-1", platform: "github", text: "#4097 Ship the new deploy pipeline · open" }, { id: "github-2", platform: "github", text: "#4101 Fix flaky checkout test · open" }],
+      avatar: { shape: "bear", color: "#64d2ff" }, created_at: "2026-10-15T09:00:00Z" },
+    { id: "idea:bbb", fingerprint: "bbb", name: "Invoice Watcher", role: "Watches invoices", integration: "gmail", integration_name: "Gmail",
+      promise: "When an invoice lands, like the one from Acme, I will log it and say so.", rationale: "One is unread now.", first_task: "Log the Acme invoice.",
+      avatar: { shape: "cat", color: "#ff9f0a" }, created_at: "2026-10-15T09:00:00Z" },
+  ] },
   hint: { platform: "gmail", name: "Gmail", line: "Connect Gmail so your bots can read this inbox", since: "2026-10-15T09:00:00Z" },
   capabilities: { voice_realtime: false, screen_context: true, screen_capture: false, pointer: true, mac_computer: true },
   permissions: { accessibility: true, screen_recording: true },
@@ -65,7 +76,6 @@ await context.route(api("/api-token"), (r) => r.fulfill({ json: { token: "t" } }
 await context.route(api("/api/events"), (r) => r.abort());
 await context.route(api("/api/notch/state"), (r) => r.fulfill({ json: STATE }));
 await context.route(api("/api/messages"), (r) => r.fulfill({ json: THREAD }));
-await context.route(api("/api/config"), (r) => r.fulfill({ json: { notch_jump_out: true, notch_announce: true, mac_computer_always_allow: false, openai_key_set: true, realtime_voice: "marin" } }));
 await context.route(api("/api/realtime/status"), (r) => r.fulfill({ json: { configured: false } }));
 const page = await context.newPage();
 const errors = [];
@@ -89,16 +99,6 @@ await page.getByRole("button", { name: "Message Designer" }).click();
 await page.waitForSelector("[data-testid=notch-thread-designer]", { timeout: 10_000 });
 await page.waitForTimeout(700);
 await page.screenshot({ path: `${OUT}/04-thread.png`, animations: "disabled" });
-// The notch's own settings.
-const sp = await context.newPage();
-await sp.goto(`${BASE}/notch.html?nw=180&nh=32&ew=40&xw=640&xh=820`, { waitUntil: "load" });
-await sp.waitForSelector(".notch-shell", { timeout: 15_000 });
-await sp.evaluate(() => window.gawkNotch && window.gawkNotch.setExpanded(true));
-await sp.waitForSelector(".npanel", { timeout: 10_000 });
-await sp.getByRole("button", { name: "Settings" }).click();
-await sp.waitForSelector("[data-testid=notch-settings]", { timeout: 10_000 });
-await sp.waitForTimeout(600);
-await sp.screenshot({ path: `${OUT}/07-settings.png`, animations: "disabled" });
 // The dock cards.
 const dock = await context.newPage();
 await dock.goto(`${BASE}/notch.html?dock=1`, { waitUntil: "load" });

@@ -226,6 +226,43 @@ export interface NotchState {
   host_wanted?: boolean;
   /** The integration behind what is in front, not connected yet. Owner only. */
   hint?: NotchHint;
+  /** The office's ideas for new bots, from its daily look. Owner only. */
+  ideas?: NotchIdeas;
+}
+
+/** One thing the daily look saw, cited by an idea. */
+export interface NotchIdeaEvidence {
+  id: string;
+  platform: string;
+  text: string;
+}
+
+/** A proposed bot: who it would be, what it promises, and why now. */
+export interface NotchIdea {
+  id: string;
+  fingerprint: string;
+  name: string;
+  role: string;
+  integration: string;
+  integration_name: string;
+  logo_url?: string;
+  promise: string;
+  rationale: string;
+  cadence?: string;
+  cadence_label?: string;
+  first_task: string;
+  evidence?: NotchIdeaEvidence[];
+  avatar?: MemberAvatar;
+  created_at: string;
+  seen_count?: number;
+}
+
+export interface NotchIdeas {
+  enabled: boolean;
+  checked_at?: string;
+  next_at?: string;
+  scanning?: boolean;
+  items: NotchIdea[];
 }
 
 /** A quiet offer to connect the integration behind the app or page in front. */

@@ -121,6 +121,11 @@ type Config struct {
 	// NotchAnnounceEnabled lets bots speak up out loud: one line when a
 	// new card needs you, one when a turn finishes. Default ON (nil).
 	NotchAnnounceEnabled *bool `json:"notch_announce,omitempty"`
+	// NotchIdeasEnabled is the daily look across connected integrations
+	// for bots worth having, shown as ideas in the notch. Default ON (nil).
+	// NotchIdeasHour is the local hour it runs at; 0 means the default (9).
+	NotchIdeasEnabled *bool `json:"notch_ideas,omitempty"`
+	NotchIdeasHour    int   `json:"notch_ideas_hour,omitempty"`
 	// MacComputerAlwaysAllow lets bots click and type on this Mac without
 	// asking first each turn. Off until the person says "always allow".
 	MacComputerAlwaysAllow *bool `json:"mac_computer_always_allow,omitempty"`
@@ -732,6 +737,23 @@ func (c Config) IsNotchJumpOutEnabled() bool {
 // need you or finish. Default ON when never chosen (nil).
 func (c Config) IsNotchAnnounceEnabled() bool {
 	return c.NotchAnnounceEnabled == nil || *c.NotchAnnounceEnabled
+}
+
+// DefaultNotchIdeasHour is the local hour the daily ideas scan runs at.
+const DefaultNotchIdeasHour = 9
+
+// IsNotchIdeasEnabled reports whether the office looks for new bots to
+// propose once a day. Default ON when never chosen (nil).
+func (c Config) IsNotchIdeasEnabled() bool {
+	return c.NotchIdeasEnabled == nil || *c.NotchIdeasEnabled
+}
+
+// NotchIdeasHourOrDefault is the local hour of the daily scan, 0 to 23.
+func (c Config) NotchIdeasHourOrDefault() int {
+	if c.NotchIdeasHour >= 1 && c.NotchIdeasHour <= 23 {
+		return c.NotchIdeasHour
+	}
+	return DefaultNotchIdeasHour
 }
 
 // IsMacComputerAlwaysAllowed reports whether bots on this Mac may act

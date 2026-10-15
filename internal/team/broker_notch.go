@@ -212,6 +212,9 @@ type notchState struct {
 	// Hint offers to connect the integration behind what is in front
 	// (broker_notch_hint.go). Owner only.
 	Hint *notchHint `json:"hint,omitempty"`
+	// Ideas are the office's proposals for new bots (broker_notch_ideas.go).
+	// Owner only.
+	Ideas *notchIdeas `json:"ideas,omitempty"`
 }
 
 func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
@@ -243,6 +246,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	state = b.withNotchConsents(state, owner)
 	state = b.withNotchHostWanted(state, owner)
 	state = b.withNotchAppHint(state, owner, now)
+	state = b.withNotchIdeas(state, owner, now)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()
