@@ -754,6 +754,13 @@ void GawkDockSuppress(int suppressed);
 				GawkOverlaySetScene(text.UTF8String);
 			}
 		}
+	} else if ([type isEqualToString:@"browse"]) {
+		// A sign-in page for an integration: the default browser, https only.
+		NSString *raw = [body[@"url"] isKindOfClass:[NSString class]] ? body[@"url"] : @"";
+		NSURL *url = [NSURL URLWithString:raw];
+		if (url != nil && [url.scheme.lowercaseString isEqualToString:@"https"] && url.host.length > 0) {
+			[[NSWorkspace sharedWorkspace] openURL:url];
+		}
 	} else if ([type isEqualToString:@"collapse"]) {
 		self.pinned = NO;
 		self.hovering = NO;

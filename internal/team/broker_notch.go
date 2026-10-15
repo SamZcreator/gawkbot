@@ -200,6 +200,9 @@ type notchState struct {
 	// HostWanted is true when a bot is set to run on this Mac, so the notch
 	// asks for the grants it needs and not before. Owner only.
 	HostWanted bool `json:"host_wanted,omitempty"`
+	// Hint offers to connect the integration behind what is in front
+	// (broker_notch_hint.go). Owner only.
+	Hint *notchHint `json:"hint,omitempty"`
 }
 
 func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
@@ -230,6 +233,7 @@ func (b *Broker) handleNotchState(w http.ResponseWriter, r *http.Request) {
 	state = b.withNotchHost(r.Context(), state, owner, now, r.URL.Query().Get("open") == "1")
 	state = b.withNotchConsents(state, owner)
 	state = b.withNotchHostWanted(state, owner)
+	state = b.withNotchAppHint(state, owner, now)
 	// Read fresh, not from the runtime-defaults cache: someone who turned
 	// this off because it was in their way should not wait for a cache.
 	cfg, _ := config.Load()

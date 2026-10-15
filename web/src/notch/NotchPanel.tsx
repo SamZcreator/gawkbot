@@ -12,6 +12,7 @@ import { SHORTCUTS } from "./keys";
 import type { LessonStep } from "./lesson";
 import { NotchBot } from "./NotchBot";
 import { NotchHero } from "./NotchHero";
+import { NotchHint } from "./NotchHint";
 import { LessonCard } from "./NotchLesson";
 import { NotchPermissionCard } from "./NotchPermissionCard";
 import { byNeed, finishedSlugs } from "./order";
@@ -953,6 +954,13 @@ export function NotchPanel(props: PanelProps) {
           <NotchPermissionCard
             permissions={state.permissions}
             onRequest={props.onPermission}
+          />
+        ) : null}
+        {state.hint ? (
+          <NotchHint
+            key={state.hint.platform}
+            hint={state.hint}
+            onOpen={props.onOpen}
           />
         ) : null}
         {needsYou > 0 ? (

@@ -124,6 +124,27 @@ export const OpenFinishedSent: Story = {
 export const OpenQuiet: Story = {
   args: { expanded: true, state: QUIET_OFFICE, gang: [] },
 };
+/** Gmail has been in front a while and is not connected: one quiet line. */
+export const OpenWithHint: Story = {
+  args: {
+    expanded: true,
+    gang: [],
+    state: {
+      ...QUIET_OFFICE,
+      screen: {
+        app: "Google Chrome",
+        bundle_id: "com.google.Chrome",
+        domain: "mail.google.com",
+      },
+      hint: {
+        platform: "gmail",
+        name: "Gmail",
+        line: "Connect Gmail so your bots can read this inbox",
+        since: "2026-10-15T09:00:00Z",
+      },
+    },
+  },
+};
 /** A bot is set to run on this Mac and the grants are not there yet. */
 export const OpenNeedsPermissions: Story = {
   args: {

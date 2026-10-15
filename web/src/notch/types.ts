@@ -218,6 +218,17 @@ export interface NotchState {
   overlay?: NotchOverlay;
   /** A bot is set to run on this Mac, so its grants are worth asking for. */
   host_wanted?: boolean;
+  /** The integration behind what is in front, not connected yet. Owner only. */
+  hint?: NotchHint;
+}
+
+/** A quiet offer to connect the integration behind the app or page in front. */
+export interface NotchHint {
+  platform: string;
+  name: string;
+  logo_url?: string;
+  line: string;
+  since: string;
 }
 
 /** Physical notch geometry, in CSS px, handed over by the native shell. */

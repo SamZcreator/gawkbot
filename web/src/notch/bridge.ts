@@ -21,6 +21,7 @@ export const EXPANDED_HEIGHT = 820;
 //                                              below the strip (peeks, chat)
 //   { type: "sound", on }                      the sound toggle, so native
 //                                              can mirror it if it ever plays
+//   { type: "browse", url }                    open an https page in the browser
 //
 // Native → page, via evaluateJavaScript:
 //   window.gawkNotch.setExpanded(boolean)
@@ -45,7 +46,9 @@ export type NativeMessage =
   /** Ask macOS for a grant; the app shows the prompt, the driver never does. */
   | { type: "permission"; kind: "accessibility" | "screen_recording" }
   /** Draw on the screen, or clear it when the scene is null. */
-  | { type: "overlay"; scene: OverlayScene | null };
+  | { type: "overlay"; scene: OverlayScene | null }
+  /** Open an https page in the default browser (a sign-in page). */
+  | { type: "browse"; url: string };
 
 interface WebkitHandlers {
   webkit?: {
