@@ -162,3 +162,22 @@ describe("<AvatarPicker>", () => {
     ).toHaveAttribute("value", AVATAR_SHAPES[blobShapeIndex("planner")]);
   });
 });
+
+describe("<AvatarPicker> look", () => {
+  it("picking a look sets only the look, and a look alone is a choice", async () => {
+    const onChange = vi.fn();
+    render(<Harness onChange={onChange} />);
+    await userEvent.selectOptions(
+      screen.getByTestId("avatar-look-hair"),
+      "bob",
+    );
+    expect(onChange).toHaveBeenLastCalledWith({ look: { hair: "bob" } });
+    await userEvent.selectOptions(
+      screen.getByTestId("avatar-look-accessory"),
+      "scarf",
+    );
+    expect(onChange).toHaveBeenLastCalledWith({
+      look: { hair: "bob", accessory: "scarf" },
+    });
+  });
+});

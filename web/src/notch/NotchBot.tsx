@@ -1,8 +1,9 @@
 import type { MemberAvatar } from "../api/memberTypes";
 import { ModelBadge } from "../components/ui/ModelBadge";
 import { OrbAvatar } from "../components/ui/OrbAvatar";
+import { OrbLookOverlay } from "../components/ui/OrbLookOverlay";
 import { runtimeTitle, useBotRuntime } from "../lib/botRuntime";
-import type { Face } from "../lib/orbAvatar";
+import { type Face, orbLook } from "../lib/orbAvatar";
 import type { Mood } from "./types";
 
 // An agent in the notch: its own orb (the same one it has everywhere in
@@ -127,15 +128,30 @@ export function NotchBot({
       data-slug={slug}
     >
       <span className="nb-body" style={{ animationDelay: `${-phase * 0.37}s` }}>
-        <OrbAvatar
-          slug={slug}
-          size={size}
-          face={
-            act === "talking" ? "asking" : awake ? "happy" : MOOD_FACE[mood]
-          }
-          live={true}
-          avatar={avatar}
-        />
+        <span
+          className="nb-orb"
+          style={{
+            position: "relative",
+            display: "inline-block",
+            width: size,
+            height: size,
+          }}
+        >
+          <OrbAvatar
+            slug={slug}
+            size={size}
+            face={
+              act === "talking" ? "asking" : awake ? "happy" : MOOD_FACE[mood]
+            }
+            live={true}
+            avatar={avatar}
+          />
+          <OrbLookOverlay
+            look={avatar?.look}
+            bodyColor={orbLook(slug, avatar).color}
+            size={size}
+          />
+        </span>
         {tucked ? <span className="nb-mask" aria-hidden="true" /> : null}
       </span>
       {shown ? <ModelBadge runtime={shown} avatarSize={size} /> : null}

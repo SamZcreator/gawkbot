@@ -87,3 +87,33 @@ func TestLegacyAvatarShapesBecomeOrbs(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeMemberLook(t *testing.T) {
+	if l, err := normalizeMemberLook(nil); l != nil || err != nil {
+		t.Fatalf("nil: %+v %v", l, err)
+	}
+	if l, err := normalizeMemberLook(&MemberLook{Hair: "none", Eyes: "default", Accessory: "none", HairColor: "#ff00aa"}); l != nil || err != nil {
+		t.Fatalf("all none is no look: %+v %v", l, err)
+	}
+	l, err := normalizeMemberLook(&MemberLook{Hair: " Bob ", HairColor: "#FF00AA", Eyes: "glasses", Accessory: "scarf"})
+	if err != nil || l == nil || l.Hair != "bob" || l.HairColor != "#ff00aa" || l.Eyes != "glasses" || l.Accessory != "scarf" {
+		t.Fatalf("look: %+v %v", l, err)
+	}
+	if _, err := normalizeMemberLook(&MemberLook{Hair: "rainbow"}); err == nil {
+		t.Fatal("unknown hair accepted")
+	}
+	if _, err := normalizeMemberLook(&MemberLook{Eyes: "laser"}); err == nil {
+		t.Fatal("unknown eyes accepted")
+	}
+	if _, err := normalizeMemberLook(&MemberLook{Hair: "tuft", HairColor: "red"}); err == nil {
+		t.Fatal("bad hair colour accepted")
+	}
+	// A hair colour with no hair is dropped; a look rides on the avatar.
+	if l, _ := normalizeMemberLook(&MemberLook{Eyes: "wink", HairColor: "#ff00aa"}); l.HairColor != "" {
+		t.Fatalf("hair colour without hair kept: %+v", l)
+	}
+	a, err := normalizeMemberAvatar(&MemberAvatar{Look: &MemberLook{Accessory: "bow"}})
+	if err != nil || a == nil || a.Look == nil || a.Look.Accessory != "bow" || a.Shape != "" {
+		t.Fatalf("avatar with only a look: %+v %v", a, err)
+	}
+}

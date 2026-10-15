@@ -74,4 +74,14 @@ export type AvatarShape =
 export interface MemberAvatar {
   shape?: AvatarShape;
   color?: string;
+  /** The character on top of the orb (lib/orbLook.ts). Absent: the orb alone. */
+  look?: MemberLook;
+}
+
+/** What a character wears: ids from HAIR, EYES, ACCESSORIES in lib/orbLook.ts. */
+export interface MemberLook {
+  hair?: string;
+  hair_color?: string;
+  eyes?: string;
+  accessory?: string;
 }

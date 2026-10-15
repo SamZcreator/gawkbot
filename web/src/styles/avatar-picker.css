@@ -178,3 +178,27 @@
     transition-duration: var(--avatar-press-duration);
   }
 }
+
+/* The character's look: three short rows of choices under the colour. */
+.avatar-picker-look {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.avatar-picker-look-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.avatar-picker-look-row select {
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  font: inherit;
+}

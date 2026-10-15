@@ -1,6 +1,10 @@
 import { type CSSProperties, type KeyboardEvent, useId, useRef } from "react";
 
-import type { AvatarShape, MemberAvatar } from "../../api/memberTypes";
+import type {
+  AvatarShape,
+  MemberAvatar,
+  MemberLook,
+} from "../../api/memberTypes";
 import {
   AVATAR_COLOR_NAMES,
   AVATAR_COLORS,
@@ -9,7 +13,16 @@ import {
   normalizeAvatarColor,
   resolveAvatar,
 } from "../../lib/blobAvatar";
+import {
+  ACCESSORIES,
+  DEFAULT_HAIR_COLOR,
+  EYES,
+  HAIR,
+  hasLook,
+  LOOK_LABELS,
+} from "../../lib/orbLook";
 import { OrbAvatar } from "../ui/OrbAvatar";
+import { OrbLookOverlay } from "../ui/OrbLookOverlay";
 
 import "../../styles/avatar-picker.css";
 
@@ -52,7 +65,22 @@ function compact(avatar: MemberAvatar): MemberAvatar | undefined {
   if (avatar.shape) out.shape = avatar.shape;
   const color = normalizeAvatarColor(avatar.color);
   if (color) out.color = color;
-  return out.shape || out.color ? out : undefined;
+  if (hasLook(avatar.look)) out.look = compactLook(avatar.look);
+  return out.shape || out.color || out.look ? out : undefined;
+}
+
+/** Only the parts of a look that draw something. */
+function compactLook(look: MemberLook | undefined): MemberLook {
+  const out: MemberLook = {};
+  if (look?.hair && look.hair !== "none") {
+    out.hair = look.hair;
+    const hairColor = normalizeAvatarColor(look.hair_color);
+    if (hairColor) out.hair_color = hairColor;
+  }
+  if (look?.eyes && look.eyes !== "default") out.eyes = look.eyes;
+  if (look?.accessory && look.accessory !== "none")
+    out.accessory = look.accessory;
+  return out;
 }
 
 /**
@@ -96,6 +124,9 @@ export function AvatarPicker({
   const pickShape = (shape: AvatarShape) =>
     onChange(compact({ ...value, shape }));
   const pickColor = (color: string) => onChange(compact({ ...value, color }));
+  const pickLook = (part: Partial<MemberLook>) =>
+    onChange(compact({ ...value, look: { ...value?.look, ...part } }));
+  const lookNow = value?.look ?? {};
 
   const onShapeKey = (e: KeyboardEvent<HTMLInputElement>, i: number) => {
     const to = nextIndex(e.key, i, AVATAR_SHAPES.length);
@@ -115,13 +146,17 @@ export function AvatarPicker({
   return (
     <div className="avatar-picker" data-automatic={automatic || undefined}>
       <div className="avatar-picker-head">
-        <span className="avatar-picker-preview">
+        <span
+          className="avatar-picker-preview"
+          style={{ position: "relative" }}
+        >
           <OrbAvatar
             slug={previewSlug}
             size={56}
             avatar={value}
             label={`Avatar preview: ${SHAPE_LABELS[AVATAR_SHAPES[look.shapeIndex]]}`}
           />
+          <OrbLookOverlay look={value?.look} bodyColor={look.color} size={56} />
         </span>
         <div className="avatar-picker-meta">
           <span className="avatar-picker-mode" aria-live="polite">
@@ -219,6 +254,64 @@ export function AvatarPicker({
               onChange={(e) => pickColor(e.target.value)}
             />
             <span className="avatar-picker-custom-text">Custom</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset className="avatar-picker-group" disabled={disabled}>
+        <legend className="avatar-picker-label">Look</legend>
+        <div className="avatar-picker-look">
+          <label className="avatar-picker-look-row">
+            <span>Hair</span>
+            <select
+              value={lookNow.hair ?? "none"}
+              onChange={(e) => pickLook({ hair: e.target.value })}
+              data-testid="avatar-look-hair"
+            >
+              {HAIR.map((h) => (
+                <option key={h} value={h}>
+                  {LOOK_LABELS[h]}
+                </option>
+              ))}
+            </select>
+            <input
+              type="color"
+              className="avatar-picker-custom-input"
+              aria-label="Hair colour"
+              value={
+                normalizeAvatarColor(lookNow.hair_color) ?? DEFAULT_HAIR_COLOR
+              }
+              disabled={disabled || !lookNow.hair || lookNow.hair === "none"}
+              onChange={(e) => pickLook({ hair_color: e.target.value })}
+            />
+          </label>
+          <label className="avatar-picker-look-row">
+            <span>Eyes</span>
+            <select
+              value={lookNow.eyes ?? "default"}
+              onChange={(e) => pickLook({ eyes: e.target.value })}
+              data-testid="avatar-look-eyes"
+            >
+              {EYES.map((v) => (
+                <option key={v} value={v}>
+                  {LOOK_LABELS[v]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="avatar-picker-look-row">
+            <span>Wears</span>
+            <select
+              value={lookNow.accessory ?? "none"}
+              onChange={(e) => pickLook({ accessory: e.target.value })}
+              data-testid="avatar-look-accessory"
+            >
+              {ACCESSORIES.map((v) => (
+                <option key={v} value={v}>
+                  {LOOK_LABELS[v]}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </fieldset>

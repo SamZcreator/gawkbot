@@ -9,7 +9,8 @@
 //
 // This module decides WHAT a bot looks like. lib/orbAvatar.ts draws it.
 
-import type { AvatarShape } from "../api/memberTypes";
+import type { AvatarShape, MemberLook } from "../api/memberTypes";
+import { hasLook } from "./orbLook";
 
 /**
  * Body ids: the orb bodies in vendor/orb-mascot, by their own names. WIRE
@@ -145,7 +146,8 @@ export function avatarShapeIndex(shape: string | undefined): number {
 export function hasAvatarChoice(avatar?: AvatarChoice | null): boolean {
   return (
     avatarShapeIndex(avatar?.shape) >= 0 ||
-    normalizeAvatarColor(avatar?.color) !== undefined
+    normalizeAvatarColor(avatar?.color) !== undefined ||
+    hasLook((avatar as { look?: MemberLook } | null | undefined)?.look)
   );
 }
 
