@@ -224,6 +224,9 @@ func TestNotchIdeaAcceptMakesTheBotAndItsRoutine(t *testing.T) {
 	if member == nil || member.Name != "Release Checker" {
 		t.Fatalf("member: %+v", member)
 	}
+	if member.Avatar == nil || member.Avatar.Shape != rc.Avatar.Shape || member.Avatar.Look == nil || member.Avatar.Look.Hair == "" {
+		t.Fatalf("the bot did not keep the card's face: %+v vs %+v", member.Avatar, rc.Avatar)
+	}
 	if routine == nil || routine.ScheduleExpr != "0 9 * * 1-5" || !routine.Enabled {
 		t.Fatalf("routine: %+v", routine)
 	}

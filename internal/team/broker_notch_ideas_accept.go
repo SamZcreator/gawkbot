@@ -91,6 +91,8 @@ func (b *Broker) acceptNotchIdea(ctx context.Context, id string) (string, error)
 		Role:        role,
 		Personality: "Made from one of the office's daily ideas. Says what it saw, does the smallest real thing, and asks before anything that changes " + idea.IntegrationName + ".",
 		CreatedBy:   createdByHumanValue,
+		// The face the card showed is the face the bot keeps.
+		Avatar: idea.Avatar,
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/office-members", nil)
 	if err != nil {

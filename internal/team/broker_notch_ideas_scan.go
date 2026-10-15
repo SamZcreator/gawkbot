@@ -354,7 +354,18 @@ func proposedIdeaAvatar(fingerprint string) *MemberAvatar {
 	if n < 0 {
 		n = -n
 	}
-	return &MemberAvatar{Shape: AvatarShapes[n%len(AvatarShapes)], Color: colors[(n/7)%len(colors)]}
+	look := &MemberLook{
+		Hair:      LookHair[1+(n/3)%(len(LookHair)-1)],
+		Eyes:      LookEyes[(n/11)%len(LookEyes)],
+		Accessory: LookAccessories[(n/13)%len(LookAccessories)],
+	}
+	if look.Eyes == "default" {
+		look.Eyes = ""
+	}
+	if look.Accessory == "none" {
+		look.Accessory = ""
+	}
+	return &MemberAvatar{Shape: AvatarShapes[n%len(AvatarShapes)], Color: colors[(n/7)%len(colors)], Look: look}
 }
 
 // startNotchIdeasLoop runs the scan under the system cron.
