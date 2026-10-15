@@ -144,6 +144,7 @@ type Broker struct {
 	notchSeen           notchSeenStore               // finished turns the owner marked done in the notch; own lock, saved beside the state
 	notchSuggest        notchSuggestStore            // replies suggested for each notch card; own lock, in memory
 	notchHints          notchHintStore               // integration hints shown for what is in front; own lock, saved beside the state
+	notchRead           notchReadStore               // what the owner has read of each bot's thread; own lock, saved beside the state
 	hostComputer        hostComputerState            // the person's own Mac, installed by the desktop shell; own lock
 	sessionAgents       sessionAgentState            // terminal sessions kept as members (broker_session_agents.go); guarded by mu
 	runtimeDefaultsMu   sync.Mutex                   // guards the three fields below; never held with mu
@@ -733,6 +734,7 @@ func (b *Broker) StartOnPort(port int) error {
 	mux.HandleFunc("/notch/stop", b.requireAuth(b.handleNotchStop))
 	mux.HandleFunc("/notch/hint/seen", b.requireAuth(b.handleNotchHintSeen))
 	mux.HandleFunc("/notch/hint/dismiss", b.requireAuth(b.handleNotchHintDismiss))
+	mux.HandleFunc("/notch/read", b.requireAuth(b.handleNotchRead))
 	mux.HandleFunc("/channels", b.requireAuth(b.handleChannels))
 	mux.HandleFunc("/channels/dm", b.requireAuth(b.handleCreateDM))
 	mux.HandleFunc("/channels/generate", b.requireAuth(b.handleGenerateChannel))

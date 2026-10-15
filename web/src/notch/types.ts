@@ -42,6 +42,10 @@ export interface NotchAgent {
    * exactly like a bot's. Absent: it can only be read, not messaged.
    */
   can_message?: boolean;
+  /** The bot's direct message with you, its newest line, and what is new. */
+  channel?: string;
+  last?: NotchBriefLine;
+  unread?: number;
 }
 
 /** A reply the office suggests for a card; the first is the recommendation. */

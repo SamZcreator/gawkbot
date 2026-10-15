@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { getMessages, type Message } from "../api/client";
+import { markRead } from "./api";
 import { NotchBot } from "./NotchBot";
 import { Composer } from "./NotchComposer";
 import type { ComposerState, PanelProps } from "./NotchPanel";
@@ -65,6 +66,11 @@ export function NotchThread(props: NotchThreadProps) {
     const el = list.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [count]);
+  // Shown is read: the newest line is marked each time it changes.
+  const newest = lines.at(-1)?.id ?? "";
+  useEffect(() => {
+    if (newest) void markRead(screen.channel, newest).catch(() => undefined);
+  }, [newest, screen.channel]);
   const working = agent?.mood === "working";
   const name = agent?.name ?? screen.name;
   const now = Date.now();

@@ -64,6 +64,12 @@ type notchAgent struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 	// LastSaid is the end of its latest reply.
 	LastSaid string `json:"last_said,omitempty"`
+	// Channel is the bot's direct message with the owner; Last its newest
+	// line there and Unread how many lines came after the owner last read
+	// it (broker_notch_read.go). Owner only.
+	Channel string          `json:"channel,omitempty"`
+	Last    *notchBriefLine `json:"last,omitempty"`
+	Unread  int             `json:"unread,omitempty"`
 	// Recap is what the work is about and where it stands, for the card of
 	// a finished turn (broker_notch_finished.go). Owner only, like sessions.
 	Recap *notchRecap `json:"recap,omitempty"`
@@ -398,6 +404,10 @@ func (b *Broker) notchStateLocked(now time.Time, defaults runtimeDefaults, owner
 		}
 	}
 	dmEnds := b.notchAnswersLocked(bots)
+	var readMarks map[string]string
+	if owner {
+		readMarks = b.notchReadMarks()
+	}
 	for _, m := range b.members {
 		if isSessionMember(m) && !owner {
 			continue
@@ -441,6 +451,18 @@ func (b *Broker) notchStateLocked(now time.Time, defaults runtimeDefaults, owner
 				agent.LastSaid = lastWordsOf(end.last.Content)
 				agent.Recap = notchBotRecap(end)
 			}
+		}
+		if owner && agent.Kind != notchAgentSession {
+			// The row's last line and dot: the owner's own conversation.
+			dm := channel.DirectSlug("human", m.Slug)
+			if m.Slug == lead && state.LeadDM != "" {
+				dm = state.LeadDM
+			}
+			agent.Channel = dm
+			if lines := b.notchRecentLinesLocked(dm, 1, names); len(lines) > 0 {
+				agent.Last = &lines[0]
+			}
+			agent.Unread = b.notchUnreadLocked(dm, readMarks[dm])
 		}
 		counts[agent.Mood]++
 		state.Agents = append(state.Agents, agent)

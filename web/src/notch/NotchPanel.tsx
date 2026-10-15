@@ -664,7 +664,14 @@ function AgentRow({
     session && agent.state !== "working" && agent.updated_at
       ? sinceShort(agent.updated_at, Date.now())
       : "";
-  const detail = agent.detail || agent.mood.replace("_", " ");
+  // At rest the row shows the last thing said in the thread; at work, the work.
+  const quiet = agent.mood === "idle" || agent.mood === "done";
+  const lastLine =
+    quiet && agent.last
+      ? `${agent.last.from === "human" || agent.last.from === "you" ? "You: " : ""}${agent.last.text}`
+      : "";
+  const detail = lastLine || agent.detail || agent.mood.replace("_", " ");
+  const unread = agent.unread ?? 0;
   return (
     <div
       className={`nagent-row${session ? " is-session" : ""}${open ? " is-open" : ""}`}
@@ -699,6 +706,16 @@ function AgentRow({
           label=""
         />
         <span className="nagent-name">{agent.name}</span>
+        {unread > 0 ? (
+          <span
+            className="nagent-unread"
+            aria-label={`${unread} new`}
+            title={`${unread} new`}
+            data-testid={`notch-unread-${agent.slug}`}
+          >
+            {unread > 9 ? "9+" : unread}
+          </span>
+        ) : null}
         {session ? <SessionMark agent={agent} /> : null}
         <span className="nagent-detail">
           {detail}

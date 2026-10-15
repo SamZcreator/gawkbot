@@ -84,3 +84,10 @@ export function showSession(slug: string) {
 export function stopBot(slug: string) {
   return post("/notch/stop", { slug }).then(() => undefined);
 }
+
+/** The newest line of a thread was on screen: it is read. Owner only. */
+export function markRead(channel: string, messageId: string) {
+  return post("/notch/read", { channel, message_id: messageId }).then(
+    () => undefined,
+  );
+}
