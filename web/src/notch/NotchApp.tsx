@@ -20,41 +20,25 @@ import {
   postNative,
   readGeometry,
 } from "./bridge";
-import {
-  staysInNotch,
-  useArrival,
-  useAttentionSignals,
-  useBanter,
-  useNotchKeys,
-  usePeeks,
-  useVoice,
-} from "./hooks";
+import { chatScreen, resolveHome } from "./home/model";
+import { newBotRequest } from "./home/NewBotPane";
+import { useAttentionSignals, useNotchKeys, useVoice } from "./hooks";
 import { nudgeForIdeas } from "./ideasNudge";
-import {
-  firstLessonStep,
-  type LessonStep,
-  nextLessonStep,
-  saveLessonDone,
-} from "./lesson";
 import { pollInterval, useNotchLive } from "./live";
-import {
-  agentChannel,
-  type ComposerState,
-  type ReplyTarget,
-} from "./NotchPanel";
-import { stageHeight, stripShapeFor } from "./NotchStrip";
-import { NotchView } from "./NotchView";
+import { stripShapeFor } from "./NotchStrip";
+import { type NotchMode, NotchView } from "./NotchView";
 import { finishedSlugs } from "./order";
 import { drawOnScreen, relayOverlay } from "./overlay";
 import { useRealtime } from "./realtime/useRealtime";
 import {
   HOME,
-  isAgentScreen,
+  NEW_BOT,
   type NotchScreen,
   SETTINGS,
   screenForTarget,
 } from "./screens";
-import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
+import type { ComposerState, ReplyTarget } from "./shared";
+import { play, unlock } from "./sounds";
 import type { NotchState } from "./types";
 import { useAnnounce } from "./useAnnounce";
 import { deliverNativeVoice, voiceAvailable } from "./voice";
@@ -72,14 +56,15 @@ function useGestureUnlock(): void {
   }, []);
 }
 
-/** A 1s clock that only ticks while someone is waiting on the human. */
-function useWaitClock(waiting: boolean): number {
+/** A clock for the rows' times, ticking each 30 s while the notch is open. */
+function useClock(running: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!waiting) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1_000);
+    if (!running) return;
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
-  }, [waiting]);
+  }, [running]);
   return now;
 }
 
@@ -94,26 +79,23 @@ export function NotchApp({
   const [openSize, setOpenSize] = useState<{ w: number; h: number } | null>(
     null,
   );
-  // ?peek=<seconds> makes peeks frequent (demos, screenshots).
-  const peekEveryMs = useMemo(
-    () =>
-      Math.max(0, Number(new URLSearchParams(search).get("peek")) || 0) * 1000,
-    [search],
-  );
   const inApp = isInMacApp();
 
   const [expanded, setExpanded] = useState(false);
+  // Hovering shows the short list; the hotkey, or a row in it, opens Home.
+  const [mode, setMode] = useState<NotchMode>("peek");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composer, setComposer] = useState<ComposerState | null>(null);
-  // Home, or one bot's thread (screens.ts). Closing the notch comes Home.
+  // Home (resolved from what is going on), or a pane the sidebar picked.
   const [screen, setScreen] = useState<NotchScreen>(HOME);
   useEffect(() => {
-    if (!expanded) setScreen(HOME);
+    if (!expanded) {
+      setScreen(HOME);
+      setComposer(null);
+    }
   }, [expanded]);
   const [answering, setAnswering] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [soundOn, setSoundOn] = useState(soundEnabled);
-  const [agentsOpen, setAgentsOpen] = useState(false);
 
   // The poll tells the broker when the panel is open, through a ref so the
   // query key (and its data) stays put across open and close.
@@ -141,51 +123,57 @@ export function NotchApp({
   }, [state?.overlay]);
   const attention = useMemo(() => state?.attention ?? [], [state]);
   const agents = useMemo(() => state?.agents ?? [], [state]);
-  // Every card the keyboard moves through, in the order the panel shows
-  // them: the questions, then the finished turns.
-  const cards = useMemo(
-    () => [...(state?.attention ?? []), ...(state?.finished ?? [])],
-    [state],
+  const selected = attention.find((a) => a.id === selectedId) ?? attention[0];
+  const resolved =
+    state && screen.kind === "home" ? resolveHome(state) : screen;
+
+  // Home on a pane: in the Mac app the panel grows to Home's size first.
+  const openHome = useCallback(
+    (next: NotchScreen) => {
+      setScreen(next);
+      setMode("home");
+      setExpanded(true);
+      if (inApp) postNative({ type: "home" });
+    },
+    [inApp],
   );
-  const selected = cards.find((a) => a.id === selectedId) ?? cards[0];
 
   useEffect(() => {
     const uninstall = installNativeReceiver(setExpanded, {
       setSize: (w, h) => {
         if (w > 0 && h > 0) setOpenSize({ w, h });
       },
-      focusKeyboard: () => setExpanded(true),
+      setMode: (m) => setMode(m === "home" ? "home" : "peek"),
+      focusKeyboard: () => {
+        setMode("home");
+        setExpanded(true);
+      },
+      showAgent: (slug) => {
+        const s = queryClient.getQueryData<NotchState>(NOTCH_QUERY_KEY);
+        const agent = s?.agents.find((a) => a.slug === slug);
+        const chat = agent && s ? chatScreen(agent, s) : null;
+        setScreen(chat ?? HOME);
+        setMode("home");
+        setExpanded(true);
+      },
       voice: deliverNativeVoice,
     });
     postNative({ type: "ready" });
     return uninstall;
-  }, []);
+  }, [queryClient]);
   useGestureUnlock();
 
-  // Sounds + the native tap/peek for new things; the boredom clock.
-  const firstSeen = useAttentionSignals(state);
-  const now = useWaitClock(attention.length > 0);
+  // Sounds for new things. Nothing drops out of the notch: the cards at the
+  // top right (NotchDock) carry what a bot has to say.
+  useAttentionSignals(state);
   const gang = useMemo(() => gangOf(attention, agents), [attention, agents]);
-  const bored = boredomOf(attention, now, firstSeen.current);
-  // One switch in Settings keeps everybody inside the notch: no chatter and
-  // no peeking here, no opening by itself and no fly-in inside the hooks.
-  const quiet = staysInNotch(state);
-  const line = useBanter(bored >= 2 && !expanded && !quiet, attention, agents);
-  const peeker = usePeeks(
-    agents,
-    attention,
-    expanded || line !== null || quiet,
-    peekEveryMs,
-  );
-
-  const arrival = useArrival(state, expanded);
-  // Each answer that lands gets a clap from the lead in the open notch.
-  const [cheer, setCheer] = useState(0);
+  const now = useClock(expanded);
+  const bored = boredomOf(attention, now, new Map());
 
   // On a Mac with a notch the strip is exactly the notch while nothing is
   // going on, and every state is a small coloured dot in a centred row just
   // under it: red for an answer needed, green for a finished turn, orange
-  // for work. Everything else is in the panel.
+  // for work.
   const finished = useMemo(() => finishedSlugs(state), [state]);
   const shape = stripShapeFor(measured, finished, agents);
   const geometry = useMemo(
@@ -202,29 +190,12 @@ export function NotchApp({
   useEffect(() => {
     postNative({ type: "ears", width: shape.earWidth, band: shape.band });
   }, [shape.earWidth, shape.band]);
-
-  // The first-run tour (lesson.ts): it moves on when the notch opens and
-  // closes, and when a practice reply is chosen.
-  const [lessonStep, setLessonStep] = useState<LessonStep>(() =>
-    firstLessonStep(measured.hotkey),
+  const onPeekHeight = useCallback(
+    (height: number) => {
+      postNative({ type: "peek", height: height + measured.notchHeight });
+    },
+    [measured.notchHeight],
   );
-  const lessonEvent = useCallback(
-    (event: Parameters<typeof nextLessonStep>[1]) =>
-      setLessonStep((step) => {
-        const next = nextLessonStep(step, event, !!measured.hotkey);
-        if (next === "done" && step !== "done") saveLessonDone();
-        return next;
-      }),
-    [measured.hotkey],
-  );
-  useEffect(() => {
-    lessonEvent(expanded ? "opened" : "closed");
-  }, [expanded, lessonEvent]);
-  // Room below the notch for the current act.
-  const stage = stageHeight({ line, peeker, arrival, expanded });
-  useEffect(() => {
-    postNative({ type: "stage", height: stage });
-  }, [stage]);
 
   const refresh = useCallback(
     () => void queryClient.invalidateQueries({ queryKey: NOTCH_QUERY_KEY }),
@@ -238,8 +209,7 @@ export function NotchApp({
       setError(null);
       setAnswering((s) => new Set(s).add(id));
     },
-    // The lead claps for it in the open notch (NotchHero), with the sound.
-    onSuccess: () => setCheer((n) => n + 1),
+    onSuccess: () => play("sent"),
     onError: (err) =>
       setError(
         err instanceof Error ? err.message : "Could not send that answer",
@@ -266,35 +236,8 @@ export function NotchApp({
       setError(err instanceof Error ? err.message : "Could not open it"),
   });
 
-  // Done on a finished turn: gone from the list at once, then for good.
-  const finishedDone = useMutation({
-    mutationFn: (id: string) => markFinishedSeen(id),
-    onMutate: (id) => {
-      setError(null);
-      queryClient.setQueryData<NotchState>(NOTCH_QUERY_KEY, (s) =>
-        s
-          ? { ...s, finished: (s.finished ?? []).filter((f) => f.id !== id) }
-          : s,
-      );
-    },
-    onError: (err) =>
-      setError(err instanceof Error ? err.message : "Could not mark that done"),
-    onSettled: refresh,
-  });
-
-  // Finished turns replied to whose session has not taken the reply yet.
-  const [sentTo, setSentTo] = useState<ReadonlySet<string>>(() => new Set());
-  const finishedIds = (state?.finished ?? []).map((f) => f.id).join(" ");
-  useEffect(() => {
-    // A card that went (the session took the reply) needs no mark.
-    const live = new Set(finishedIds.split(" "));
-    setSentTo((s) =>
-      [...s].every((id) => live.has(id))
-        ? s
-        : new Set([...s].filter((id) => live.has(id))),
-    );
-  }, [finishedIds]);
-
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const send = useMutation({
     mutationFn: ({ target, text }: { target: ReplyTarget; text: string }) =>
       target.kind === "answer"
@@ -302,39 +245,23 @@ export function NotchApp({
         : sendMessage(target.channel, text),
     onMutate: () => setError(null),
     onSuccess: (_d, { target }) => {
-      if (target.kind === "answer") setCheer((n) => n + 1);
-      else {
-        play("sent");
-        const turns = (state?.finished ?? []).filter(
-          (f) => f.from === target.slug,
-        );
-        const isSession =
-          state?.agents.find((a) => a.slug === target.slug)?.kind === "session";
-        if (isSession) {
-          // A session takes the reply only once it is waiting for you, and
-          // until then the reply lives in the running app alone. Its card
-          // stays, marked sent, and goes by itself when the session starts
-          // on it; if the app restarts first, the card is still there.
-          setSentTo((s) => new Set([...s, ...turns.map((f) => f.id)]));
-        } else {
-          // An office bot has the reply the moment it is posted: the card
-          // goes, as Done would take it.
-          for (const f of turns) finishedDone.mutate(f.id);
+      play("sent");
+      if (target.kind === "message") {
+        // A finished turn replied to is done with: its dot goes.
+        for (const f of state?.finished ?? []) {
+          if (f.from === target.slug)
+            void markFinishedSeen(f.id).catch(() => undefined);
         }
       }
-      // In a thread the box stays, empty, for the next line.
+      // In a chat the box stays, empty, for the next line.
       setComposer((c) =>
-        c && target.kind === "message" && isAgentScreen(screenRef.current)
-          ? { ...c, text: "" }
-          : null,
+        c && target.kind === "message" ? { ...c, text: "" } : null,
       );
       refresh();
     },
     onError: (err) =>
       setError(err instanceof Error ? err.message : "Could not send that"),
   });
-  const screenRef = useRef(screen);
-  screenRef.current = screen;
 
   const setVoiceSession = useVoice(setComposer, setError);
   const [talking, setTalking] = useState(false);
@@ -348,14 +275,14 @@ export function NotchApp({
     [setVoiceSession],
   );
   useAnnounce(state, talking);
-  // The morning's ideas: one peek and one line, per look, with the notch closed.
+  // The morning's ideas: one line, per look, with the notch closed.
   const ideasCheckedAt = state?.ideas?.checked_at ?? "";
   const nudgeLatest = useRef({ state, expanded, talking });
   nudgeLatest.current = { state, expanded, talking };
   useEffect(() => {
     if (!ideasCheckedAt) return;
-    const now = nudgeLatest.current;
-    if (!now.talking) nudgeForIdeas(now.state, now.expanded);
+    const at = nudgeLatest.current;
+    if (!at.talking) nudgeForIdeas(at.state, at.expanded);
   }, [ideasCheckedAt, expanded]);
   // Talking to the office out loud, when the office has a key for it.
   const talk = useRealtime(
@@ -377,18 +304,16 @@ export function NotchApp({
     t.release();
     return true;
   }, []);
-  // A message to a bot opens its thread with the box ready; a card's
-  // answer keeps the box on Home, under the card.
-  const openComposer = useCallback((target: ReplyTarget) => {
-    setComposer({ target, text: "", listening: false });
-    const next = screenForTarget(target);
-    if (next) setScreen(next);
-  }, []);
-  const cancelComposer = useCallback(() => {
-    setVoice(false);
-    setComposer(null);
-    setScreen(HOME);
-  }, [setVoice]);
+  // A message to a bot opens its chat with the box ready; an answer to a
+  // question opens the box under it, in the asking bot's chat.
+  const openComposer = useCallback(
+    (target: ReplyTarget) => {
+      setComposer({ target, text: "", listening: false });
+      const next = screenForTarget(target);
+      if (next) openHome(next);
+    },
+    [openHome],
+  );
   const goHome = useCallback(() => {
     setVoice(false);
     setComposer(null);
@@ -405,6 +330,18 @@ export function NotchApp({
     };
   }, [state]);
   const replyTarget = useCallback((): ReplyTarget | null => {
+    if (resolved.kind === "agent") {
+      const asked = attention.find((a) => a.from === resolved.slug);
+      if (asked) {
+        return { kind: "answer", requestId: asked.id, to: resolved.name };
+      }
+      return {
+        kind: "message",
+        slug: resolved.slug,
+        name: resolved.name,
+        channel: resolved.channel,
+      };
+    }
     if (!selected) return leadTarget();
     const who = agents.find((a) => a.slug === selected.from);
     return {
@@ -412,53 +349,53 @@ export function NotchApp({
       requestId: selected.id,
       to: who?.name ?? selected.from,
     };
-  }, [selected, agents, leadTarget]);
+  }, [resolved, attention, selected, agents, leadTarget]);
 
-  // Out to the full app, at whatever is selected. On the Mac, closing that
+  // Out to the full app, at whatever is open. On the Mac, closing that
   // window hides it again (HideWindowOnClose) and the notch is all that is
   // left, so this is a round trip, not a hand-off.
   const openFull = useCallback(() => {
     postNative({
       type: "open",
-      path: selected?.channel
-        ? `/channels/${encodeURIComponent(selected.channel)}`
-        : "/",
+      path:
+        resolved.kind === "agent"
+          ? `/channels/${encodeURIComponent(resolved.channel)}`
+          : "/",
     });
-  }, [selected]);
+  }, [resolved]);
 
-  // Where a reply chosen on a card goes: the question's answer, or the
-  // finished agent's own conversation.
-  const cardTarget = (id: string): ReplyTarget | null => {
-    const asked = attention.find((a) => a.id === id);
-    if (asked) {
-      return {
-        kind: "answer",
-        requestId: id,
-        to: asked.from_name ?? asked.from,
-      };
-    }
-    const turn = state?.finished?.find((f) => f.id === id);
-    const agent = turn && state?.agents.find((a) => a.slug === turn.from);
-    const channel = agent && state ? agentChannel(agent, state) : null;
-    if (!(turn && agent && channel)) return null;
-    return { kind: "message", slug: turn.from, name: agent.name, channel };
-  };
+  // Picking a question (keys J/K) shows it in its bot's chat.
+  const selectCard = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      const card = attention.find((a) => a.id === id);
+      const agent = card && agents.find((a) => a.slug === card.from);
+      const chat = agent && state ? chatScreen(agent, state) : null;
+      if (chat) setScreen(chat);
+    },
+    [attention, agents, state],
+  );
 
-  useNotchKeys(expanded, {
-    attention: cards,
-    // During the practice step a stray ↵ or number must not answer a real
-    // card: only the arrows (and ↵ on the focused practice reply) act.
-    selected: lessonStep === "choose" ? undefined : selected,
+  useNotchKeys(expanded && mode === "home", {
+    attention,
+    selected,
     composer,
-    select: setSelectedId,
+    select: selectCard,
     choose: (id, choiceId) => answer.mutate({ id, choiceId }),
     suggest: (id, text) => {
-      const target = cardTarget(id);
-      if (target) send.mutate({ target, text });
+      const asked = attention.find((a) => a.id === id);
+      if (asked) {
+        send.mutate({
+          target: {
+            kind: "answer",
+            requestId: id,
+            to: asked.from_name ?? asked.from,
+          },
+          text,
+        });
+      }
     },
-    done: (id) => {
-      if (state?.finished?.some((f) => f.id === id)) finishedDone.mutate(id);
-    },
+    done: () => undefined,
     reply: replyTarget,
     lead: leadTarget,
     open: openComposer,
@@ -468,82 +405,87 @@ export function NotchApp({
     openFull,
     close: () => {
       if (talk.phase !== "idle" || talk.said) talk.end();
-      else if (screen.kind !== "home") goHome();
-      else if (composer) cancelComposer();
+      else if (composer) {
+        setVoice(false);
+        setComposer(null);
+      } else if (screen.kind !== "home") goHome();
       else if (inApp) postNative({ type: "collapse" });
       else setExpanded(false);
     },
   });
 
-  // Outside the Mac app (a browser tab, a demo) hovering the notch opens it.
+  // Outside the Mac app (a browser tab, a demo) hovering the notch opens
+  // the short list, and leaving it closes whatever is open.
   const hoverProps = inApp
     ? {}
     : {
-        onMouseEnter: () => setExpanded(true),
+        onMouseEnter: () => {
+          if (!expanded) {
+            setMode("peek");
+            setExpanded(true);
+          }
+        },
         onMouseLeave: () => {
           if (!composer) setExpanded(false);
         },
       };
 
-  const toggleSound = () => {
-    const next = !soundOn;
-    setSoundEnabled(next);
-    setSoundOn(next);
-    postNative({ type: "sound", on: next });
-    if (next) play("sent");
-  };
-
+  const leadChannel = state?.lead_dm ?? null;
   return (
     <div {...hoverProps} className="notch-host">
       <NotchView
         state={state}
         geometry={geometry}
         expanded={expanded}
+        mode={mode}
+        screen={resolved}
         gang={gang}
         boredom={bored}
-        line={line}
-        peeker={peeker}
-        lessonStep={lessonStep}
-        screen={screen}
-        onSettings={() => setScreen(SETTINGS)}
-        talking={talking}
-        onBack={goHome}
-        onStop={(slug) =>
-          void stopBot(slug).catch(() => setError("Could not stop it"))
-        }
-        voice={talk.available || talk.phase !== "idle" ? talk : undefined}
-        onPermission={(kind) => void requestPermission(kind)}
-        onLessonPracticed={() => lessonEvent("practiced")}
-        onLessonSkip={() => lessonEvent("skipped")}
-        arrival={arrival}
-        cheer={cheer}
+        now={now}
         selectedId={selected?.id ?? null}
         answering={answering}
         composer={composer}
         sending={send.isPending}
         error={error ?? (query.isError ? "Lost the office. Retrying…" : null)}
-        soundOn={soundOn}
         voiceAvailable={voiceAvailable()}
-        onSelect={setSelectedId}
+        voice={talk.available || talk.phase !== "idle" ? talk : undefined}
+        talking={talking}
+        onPick={openHome}
+        onExpand={() => openHome(screen)}
+        onPeekHeight={onPeekHeight}
+        onBack={goHome}
+        onSettings={() => setScreen(SETTINGS)}
+        onNewBot={() => setScreen(NEW_BOT)}
+        onNewBotSubmit={(what) => {
+          const lead = leadTarget();
+          if (!lead || lead.kind !== "message" || !leadChannel) return;
+          send.mutate({ target: lead, text: newBotRequest(what) });
+          setComposer({ target: lead, text: "", listening: false });
+          setScreen(screenForTarget(lead) ?? HOME);
+        }}
+        onOpenFull={openFull}
+        onStop={(slug) =>
+          void stopBot(slug).catch(() => setError("Could not stop it"))
+        }
+        onShowSource={(slug) => showSource.mutate(slug)}
+        onCompose={openComposer}
+        onSelect={selectCard}
         onAnswer={(id, choiceId) => answer.mutate({ id, choiceId })}
         onReply={openComposer}
         onSend={(target, text) => send.mutate({ target, text })}
-        sentTo={sentTo}
+        onOpen={(path) => postNative({ type: "open", path })}
         onComposerText={(text) => setComposer((c) => (c ? { ...c, text } : c))}
         onComposerSubmit={() =>
           composer &&
           send.mutate({ target: composer.target, text: composer.text.trim() })
         }
-        onComposerCancel={cancelComposer}
+        onComposerCancel={() => {
+          setVoice(false);
+          setComposer(null);
+        }}
         onVoice={setVoice}
-        onOpen={(path) => postNative({ type: "open", path })}
         onKeyboard={(active) => postNative({ type: "keyboard", active })}
-        onToggleSound={toggleSound}
-        onOpenFull={openFull}
-        agentsOpen={agentsOpen}
-        onAgentsOpen={setAgentsOpen}
-        onFinishedDone={(id) => finishedDone.mutate(id)}
-        onShowSource={(slug) => showSource.mutate(slug)}
+        onPermission={(kind) => void requestPermission(kind)}
       />
     </div>
   );

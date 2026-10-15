@@ -38,26 +38,27 @@ static const CGFloat kMaxBandHeight = 14.0;
 // The open panel, as large as it can be up to these, leaving a margin of
 // screen below it. The page is told the size (xw / xh in pageURL) and draws
 // itself at exactly that, so the composer and the footer are never clipped.
-static const CGFloat kExpandedWidth = 640.0;
-static const CGFloat kExpandedHeight = 820.0;
+static const CGFloat kExpandedWidth = 760.0;
+static const CGFloat kExpandedHeight = 500.0;
 static const CGFloat kExpandedScreenMargin = 48.0;
 // The open panel can be dragged bigger or smaller by its bottom and side
 // edges (GawkNotchResizeEdge) and keeps that size, no smaller than this.
-static const CGFloat kExpandedMinWidth = 520.0;
-static const CGFloat kExpandedMinHeight = 440.0;
+static const CGFloat kExpandedMinWidth = 600.0;
+static const CGFloat kExpandedMinHeight = 400.0;
+// Hovering opens a short list instead (the page's home/NotchPeek.tsx): this
+// wide, and as tall as the page says its rows are.
+static const CGFloat kPeekWidth = 340.0;
+static const CGFloat kPeekDefaultHeight = 360.0;
 static const CGFloat kResizeEdge = 8.0;
 static NSString *const kOpenSizeDefaultsKey = @"GawkNotchOpenSize";
 // Matches the .notch-shell CSS transition, so the panel shrinks only after
 // the page has finished animating closed.
 static const NSTimeInterval kCollapseDelay = 0.3;
 static const NSTimeInterval kHoverExitGrace = 0.25;
-static const NSTimeInterval kPeekDuration = 4.0;
 // While open, the pointer is also polled: tracking-area exit events are not
 // guaranteed when the area is rebuilt with the cursor already inside it (the
 // panel grows under the pointer on every expand).
 static const NSTimeInterval kHoverPollInterval = 0.2;
-// Most room the page may ask for below the collapsed strip (peeks, chatter).
-static const CGFloat kMaxStageHeight = 160.0;
 
 // A panel that can take keyboard focus for the "message the Chief of Staff"
 // box without activating the app (NSWindowStyleMaskNonactivatingPanel), the
@@ -174,8 +175,10 @@ typedef NS_ENUM(NSInteger, GawkResizeSide) {
 // was doing (typing a reply, pinned open from the keyboard).
 @property(nonatomic, strong) id outsideClickGlobal;
 @property(nonatomic, strong) id outsideClickLocal;
-@property(nonatomic, strong) NSDate *peekUntil;
-@property(nonatomic) CGFloat stageHeight;
+// Open as Home (hotkey, a row, a card) rather than the hover list.
+@property(nonatomic) BOOL homeMode;
+// The hover list's height, strip included, as the page last measured it.
+@property(nonatomic) CGFloat peekHeight;
 // On a Mac with a notch, how wide the ears are right now, as the page asks:
 // 0 (exactly the notch), dots at rest, or faces when something needs you.
 @property(nonatomic) CGFloat earsWidth;
@@ -267,7 +270,18 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 
 // The open panel's size on this screen: the size last dragged to, else the
 // default, never past the screen's edges and never below the minimum.
+// The open panel's size: Home's (remembered, resizable), or the hover
+// list's (the page's measure).
 - (NSSize)expandedSize {
+	if (!self.homeMode) {
+		NSRect sf = [self notchScreen].frame;
+		CGFloat h = self.peekHeight > 0 ? self.peekHeight : kPeekDefaultHeight;
+		return NSMakeSize(kPeekWidth, round(MIN(h, NSHeight(sf) - kExpandedScreenMargin)));
+	}
+	return [self homeSize];
+}
+
+- (NSSize)homeSize {
 	NSRect sf = [self notchScreen].frame;
 	CGFloat want = self.openSize.width > 0 ? self.openSize.width : kExpandedWidth;
 	CGFloat wantH = self.openSize.height > 0 ? self.openSize.height : kExpandedHeight;
@@ -293,7 +307,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 
 // Tells the page the open panel's size, so it lays out to exactly that.
 - (void)tellPageSize {
-	NSSize open = [self expandedSize];
+	NSSize open = [self homeSize];
 	NSString *js = [NSString stringWithFormat:@"window.gawkNotch && window.gawkNotch.setSize && window.gawkNotch.setSize(%.0f, %.0f)",
 		open.width, open.height];
 	[self.webView evaluateJavaScript:js completionHandler:nil];
@@ -304,7 +318,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 - (void)layoutResizeEdges {
 	NSRect b = self.content.bounds;
 	for (GawkNotchResizeEdge *edge in self.resizeEdges) {
-		edge.hidden = !self.expanded;
+		edge.hidden = !(self.expanded && self.homeMode);
 		switch (edge.side) {
 		case GawkResizeLeft:
 			edge.frame = NSMakeRect(0, 0, kResizeEdge, NSHeight(b));
@@ -321,7 +335,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 }
 
 - (void)resizeBy:(NSPoint)delta side:(GawkResizeSide)side {
-	if (!self.expanded) {
+	if (!(self.expanded && self.homeMode)) {
 		return;
 	}
 	NSSize size = [self expandedSize];
@@ -344,7 +358,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 }
 
 - (void)resizeEnded {
-	self.openSize = [self expandedSize];
+	self.openSize = [self homeSize];
 	[self saveOpenSize];
 }
 
@@ -353,7 +367,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	CGFloat collapsedWidth = self.notchWidth + 2 * [self earWidth];
 	NSSize open = [self expandedSize];
 	CGFloat w = expanded ? MAX(open.width, collapsedWidth) : collapsedWidth;
-	CGFloat h = expanded ? open.height : self.notchHeight + self.bandHeight + self.stageHeight;
+	CGFloat h = expanded ? open.height : self.notchHeight + self.bandHeight;
 	NSRect sf = screen.frame;
 	return NSMakeRect(round(NSMidX(sf) - w / 2), NSMaxY(sf) - h, w, h);
 }
@@ -364,7 +378,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 		: self.officeURL;
 	// glass=1 tells the page the sheet's material is drawn natively, so it
 	// paints a light tint instead of an opaque sheet.
-	NSSize open = [self expandedSize];
+	NSSize open = [self homeSize];
 	NSString *s = [NSString stringWithFormat:@"%@/notch.html?nw=%.0f&nh=%.0f&ew=%.0f&xw=%.0f&xh=%.0f&glass=1&hk=%@",
 		base, self.notchWidth, self.notchHeight, self.notchWidth > 0 ? kCompactEarWidth : kEarWidth,
 		open.width, open.height, self.hotKeyName ?: @""];
@@ -535,7 +549,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 		return;
 	}
 	self.pinned = YES;
-	[self applyExpanded:YES animatePage:YES];
+	[self openHome];
 	[self.webView evaluateJavaScript:@"window.gawkNotch && window.gawkNotch.focusKeyboard && window.gawkNotch.focusKeyboard()"
 	               completionHandler:nil];
 }
@@ -651,8 +665,8 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 #pragma mark Expand / collapse
 
 - (void)tellPageExpanded:(BOOL)expanded {
-	NSString *js = [NSString stringWithFormat:@"window.gawkNotch && window.gawkNotch.setExpanded(%@)",
-		expanded ? @"true" : @"false"];
+	NSString *js = [NSString stringWithFormat:@"window.gawkNotch && (window.gawkNotch.setMode && window.gawkNotch.setMode('%@'), window.gawkNotch.setExpanded(%@))",
+		self.homeMode ? @"home" : @"peek", expanded ? @"true" : @"false"];
 	[self.webView evaluateJavaScript:js completionHandler:nil];
 }
 
@@ -691,7 +705,7 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 		[self.panel orderFrontRegardless];
 	}
 	self.keyboardActive = NO;
-	self.peekUntil = nil;
+	self.homeMode = NO;
 	NSTimeInterval delay = animate ? kCollapseDelay : 0;
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 		// A newer expand/collapse superseded this one.
@@ -704,9 +718,6 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 
 - (void)collapseUnlessBusy {
 	if (self.hovering || self.keyboardActive || self.pinned) {
-		return;
-	}
-	if (self.peekUntil != nil && [self.peekUntil timeIntervalSinceNow] > 0) {
 		return;
 	}
 	[self applyExpanded:NO animatePage:YES];
@@ -795,6 +806,7 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 	self.hovering = YES;
 	if (!self.expanded) {
 		[self haptic:NSHapticFeedbackPatternLevelChange];
+		self.homeMode = NO;
 		[self applyExpanded:YES animatePage:YES];
 	}
 }
@@ -810,16 +822,31 @@ static NSImage *GawkBottomRoundedMask(CGFloat radius) {
 	});
 }
 
-// Something new needs the human: tap and peek the panel open, then fold it
-// away again unless they moved onto it.
-- (void)peek {
-	[self haptic:NSHapticFeedbackPatternGeneric];
-	if (self.expanded) {
+// Home: from the hover list (a row, the expand button), the hotkey, or a
+// card at the top right. It stays open until Esc, the hotkey, or a click
+// outside; the hover list's own size gives way to Home's.
+- (void)openHome {
+	self.homeMode = YES;
+	self.pinned = YES;
+	if (!self.expanded) {
+		[self applyExpanded:YES animatePage:YES];
 		return;
 	}
-	[self applyExpanded:YES animatePage:YES];
-	// The hover poll folds it away once this passes and the pointer is not on it.
-	self.peekUntil = [NSDate dateWithTimeIntervalSinceNow:kPeekDuration];
+	[self.panel setFrame:[self frameExpanded:YES] display:YES];
+	self.glass.frame = self.content.bounds;
+	[self layoutResizeEdges];
+	[self tellPageSize];
+	[self tellPageExpanded:YES];
+	[self.panel makeKeyWindow];
+}
+
+// A card at the top right asked for one bot: Home, on its chat.
+- (void)showAgent:(NSString *)slug {
+	[self openHome];
+	NSData *json = [NSJSONSerialization dataWithJSONObject:@[ slug ] options:0 error:nil];
+	NSString *arg = json != nil ? [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding] : @"[\"\"]";
+	NSString *js = [NSString stringWithFormat:@"window.gawkNotch && window.gawkNotch.showAgent && window.gawkNotch.showAgent(%@[0])", arg];
+	[self.webView evaluateJavaScript:js completionHandler:nil];
 }
 
 void GawkRequestAccessibility(void);
@@ -844,8 +871,15 @@ void GawkDockSuppress(int suppressed);
 	NSDictionary *body = message.body;
 	NSString *type = [body[@"type"] isKindOfClass:[NSString class]] ? body[@"type"] : @"";
 
-	if ([type isEqualToString:@"attention"]) {
-		[self peek];
+	if ([type isEqualToString:@"home"]) {
+		[self openHome];
+	} else if ([type isEqualToString:@"peek"]) {
+		CGFloat h = [body[@"height"] respondsToSelector:@selector(doubleValue)] ? [body[@"height"] doubleValue] : 0;
+		self.peekHeight = MAX(0, h);
+		if (self.expanded && !self.homeMode) {
+			[self.panel setFrame:[self frameExpanded:YES] display:YES];
+			self.glass.frame = self.content.bounds;
+		}
 	} else if ([type isEqualToString:@"keyboard"]) {
 		self.keyboardActive = [body[@"active"] boolValue];
 		if (self.keyboardActive) {
@@ -861,12 +895,6 @@ void GawkDockSuppress(int suppressed);
 		if (!self.expanded) {
 			[self.panel setFrame:[self frameExpanded:NO] display:YES];
 			[self.content updateTrackingAreas];
-		}
-	} else if ([type isEqualToString:@"stage"]) {
-		CGFloat h = [body[@"height"] respondsToSelector:@selector(doubleValue)] ? [body[@"height"] doubleValue] : 0;
-		self.stageHeight = MAX(0, MIN(kMaxStageHeight, h));
-		if (!self.expanded) {
-			[self.panel setFrame:[self frameExpanded:NO] display:YES];
 		}
 	} else if ([type isEqualToString:@"voice"]) {
 		if ([body[@"action"] isEqual:@"start"]) {
@@ -1252,6 +1280,16 @@ void GawkNotchStart(const char *officeURL) {
 		// same page with ?dock=1.
 		GawkDockStart(officeURL);
 	});
+}
+
+// A card at the top right (dock_darwin.m) asked to open the notch on one
+// bot's chat. Called on the main queue.
+void GawkNotchShowAgent(const char *slug) {
+	NSString *s = [NSString stringWithUTF8String:slug ?: ""];
+	if (gNotch == nil || s.length == 0) {
+		return;
+	}
+	[gNotch showAgent:s];
 }
 
 #pragma mark Permissions for the person's Mac as a computer

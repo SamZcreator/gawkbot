@@ -17,6 +17,8 @@
 
 #include "_cgo_export.h"
 
+void GawkNotchShowAgent(const char *slug);
+
 static const CGFloat kDockWidth = 300.0;
 static const CGFloat kDockInset = 16.0;
 static const CGFloat kDockMaxHeight = 600.0;
@@ -141,6 +143,13 @@ static GawkDockController *gDock;
 		self.height = MAX(0, h);
 		self.count = MAX(0, n);
 		[self apply];
+	} else if ([type isEqualToString:@"chat"]) {
+		NSString *slug = [body[@"slug"] isKindOfClass:[NSString class]] ? body[@"slug"] : @"";
+		NSCharacterSet *bad = [[NSCharacterSet characterSetWithCharactersInString:
+			@"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."] invertedSet];
+		if (slug.length > 0 && slug.length <= 128 && [slug rangeOfCharacterFromSet:bad].location == NSNotFound) {
+			GawkNotchShowAgent(slug.UTF8String);
+		}
 	} else if ([type isEqualToString:@"open"]) {
 		NSString *path = [body[@"path"] isKindOfClass:[NSString class]] ? body[@"path"] : @"";
 		if ([path hasPrefix:@"/"] && ![path hasPrefix:@"//"]) {

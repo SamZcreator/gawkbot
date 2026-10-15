@@ -44,9 +44,10 @@ afterEach(cleanup);
 const noop = () => {};
 
 function mount(extra: Partial<Parameters<typeof NotchThread>[0]> = {}) {
-  const onBack = vi.fn();
   const onStop = vi.fn();
   const onOpen = vi.fn();
+  const onAnswer = vi.fn();
+  const onCompose = vi.fn();
   render(
     <QueryClientProvider
       client={
@@ -85,17 +86,21 @@ function mount(extra: Partial<Parameters<typeof NotchThread>[0]> = {}) {
         onComposerCancel={noop}
         onVoice={noop}
         onKeyboard={noop}
-        onBack={onBack}
         onOpen={onOpen}
         onStop={onStop}
+        onCompose={onCompose}
+        onSelect={noop}
+        onAnswer={onAnswer}
+        onReply={noop}
+        onSend={noop}
         {...extra}
       />
     </QueryClientProvider>,
   );
-  return { onBack, onStop, onOpen };
+  return { onStop, onOpen, onAnswer, onCompose };
 }
 
-describe("a bot's thread", () => {
+describe("a bot's chat", () => {
   it("shows the conversation oldest first, yours on your side, with the reply box", async () => {
     mount();
     expect(await screen.findByText("Fix the flaky tests")).toBeInTheDocument();
@@ -112,17 +117,37 @@ describe("a bot's thread", () => {
     expect(screen.getByText("running the suite")).toBeInTheDocument();
   });
 
-  it("goes back, stops a working bot, and opens the full view at the conversation", async () => {
-    const { onBack, onStop, onOpen } = mount();
+  it("stops a working bot from the box, and opens the full view at the conversation", async () => {
+    const { onStop, onOpen } = mount();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Stop Gemini CLI" }));
     expect(onStop).toHaveBeenCalledWith("gemini");
-    await user.click(screen.getByRole("button", { name: "Back" }));
-    expect(onBack).toHaveBeenCalled();
     await user.click(
       screen.getByRole("button", { name: "Open Gemini CLI in full view" }),
     );
     expect(onOpen).toHaveBeenCalledWith("/channels/gemini__human");
+  });
+
+  it("shows the question the bot is waiting on inside its chat, one tap to answer", async () => {
+    const { onAnswer } = mount();
+    const user = userEvent.setup();
+    expect(
+      screen.getByRole("article", { name: "Question from Gemini CLI" }),
+    ).toHaveTextContent("Send the launch email?");
+    await user.click(screen.getByRole("button", { name: /Approve/ }));
+    expect(onAnswer).toHaveBeenCalledWith("req-1", "approve");
+  });
+
+  it("offers an empty box that starts a message when nothing is being typed", async () => {
+    const { onCompose } = mount({ composer: null });
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId("notch-compose-idle"));
+    expect(onCompose).toHaveBeenCalledWith({
+      kind: "message",
+      slug: "gemini",
+      name: "Gemini CLI",
+      channel: "gemini__human",
+    });
   });
 
   it("keeps the last lines, in order, and knows which are yours", () => {

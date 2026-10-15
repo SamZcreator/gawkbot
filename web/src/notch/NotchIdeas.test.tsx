@@ -82,7 +82,7 @@ afterEach(cleanup);
 describe("suggested for you", () => {
   it("shows one idea at a time with its promise, counts it seen, and moves through them", async () => {
     mount();
-    expect(screen.getByText(/Suggested for you · 1 of 2/)).toBeInTheDocument();
+    expect(screen.getByText("1 of 2")).toBeInTheDocument();
     expect(
       screen.getByText(/Before #4097 goes to production/),
     ).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("suggested for you", () => {
       screen.getByText("#4097 Ship the new deploy pipeline"),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next idea" }));
-    expect(screen.getByText(/2 of 2/)).toBeInTheDocument();
+    expect(screen.getByText("2 of 2")).toBeInTheDocument();
     await waitFor(() => expect(calls).toContainEqual(["seen", "idea:bbb"]));
   });
 
@@ -120,12 +120,13 @@ describe("suggested for you", () => {
     expect(onOpen).toHaveBeenCalledWith("/agents/release-checker");
   });
 
-  it("is nothing with no ideas", () => {
-    const { container } = render(
+  it("says when it last looked, and offers a look now, with no ideas", () => {
+    render(
       <QueryClientProvider client={new QueryClient()}>
         <NotchIdeas ideas={{ enabled: true, items: [] }} onOpen={vi.fn()} />
       </QueryClientProvider>,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByText(/Nothing new yet/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Look now" })).toBeEnabled();
   });
 });

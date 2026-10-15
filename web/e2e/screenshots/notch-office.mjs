@@ -1,6 +1,7 @@
-// The notch's screens: Home with an integration hint, a card, and rows
-// with their last line and unread count; a bot's thread; and the dock
-// cards for working bots. Runs against vite with every /api/* answered
+// The notch's screens: the hover list, Home (sidebar of one Suggestions
+// group, the bots, one Sessions group; a bot's chat with its question),
+// the suggestions carousel, the sessions, a new bot, settings, and the
+// cards at the top right. Runs against vite with every /api/* answered
 // here, so no office is needed. Run via the wrapper:
 //   web/e2e/screenshots/publish.sh --dry-run notch-office 0
 import { chromium } from "@playwright/test";
@@ -22,6 +23,10 @@ const AGENTS = [
   { slug: "release-checker", name: "Release Checker", mood: "working", detail: "reading the changes waiting on the deploy", channel: "human__release-checker" },
   { slug: "designer", name: "Designer", mood: "idle", detail: "", channel: "designer__human", unread: 2,
     last: { from: "designer", text: "Two options for the empty state are in the wiki; I lean to the quiet one.", at: "2026-10-15T09:05:00Z" } },
+  { slug: "cc-1", name: "Fix the login redirect", mood: "idle", kind: "session", tool: "claude-code", tool_name: "Claude Code",
+    project: "billing", state: "your_turn", updated_at: "2026-10-15T09:08:00Z", open: true, last_said: "Tests pass. Want me to merge it, or add a regression test first?" },
+  { slug: "cx-2", name: "Plan the agent architecture", mood: "working", kind: "session", tool: "codex", tool_name: "Codex",
+    project: "agentOS", state: "working", updated_at: "2026-10-15T09:09:00Z" },
 ];
 
 const STATE = {
@@ -83,28 +88,43 @@ const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 
-await page.goto(`${BASE}/notch.html?nw=180&nh=32&ew=40&xw=640&xh=820`, { waitUntil: "load" });
+await page.goto(`${BASE}/notch.html?nw=180&nh=32&ew=40&xw=760&xh=500`, { waitUntil: "load" });
 await page.waitForSelector(".notch-shell", { timeout: 15_000 });
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${OUT}/01-collapsed.png`, animations: "disabled" });
-await page.evaluate(() => window.gawkNotch && window.gawkNotch.setExpanded(true));
-await page.waitForSelector(".npanel", { timeout: 10_000 });
-await page.waitForTimeout(900);
-await page.screenshot({ path: `${OUT}/02-home.png`, animations: "disabled" });
-// Open the agent list and the designer's thread.
-const showAll = page.getByRole("button", { name: /Show all|Hide/ });
-if (await showAll.count()) { await showAll.first().click(); await page.waitForTimeout(300); }
-await page.screenshot({ path: `${OUT}/03-home-agents.png`, animations: "disabled" });
-await page.getByRole("button", { name: "Message Designer" }).click();
-await page.waitForSelector("[data-testid=notch-thread-designer]", { timeout: 10_000 });
+// Hovering: the short list.
+await page.evaluate(() => { window.gawkNotch.setMode("peek"); window.gawkNotch.setExpanded(true); });
+await page.waitForSelector("[data-testid=notch-peek]", { timeout: 10_000 });
 await page.waitForTimeout(700);
-await page.screenshot({ path: `${OUT}/04-thread.png`, animations: "disabled" });
+await page.screenshot({ path: `${OUT}/02-hover-list.png`, animations: "disabled" });
+// The hotkey: Home, on the bot with a question.
+await page.evaluate(() => { window.gawkNotch.setMode("home"); window.gawkNotch.setSize(760, 500); });
+await page.waitForSelector("[data-testid=notch-home]", { timeout: 10_000 });
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${OUT}/03-home-question.png`, animations: "disabled" });
+await page.getByTestId("notch-row-suggestions").first().click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/04-home-suggestions.png`, animations: "disabled" });
+await page.getByTestId("notch-row-designer").first().click();
+await page.waitForSelector("[data-testid=notch-thread-designer]", { timeout: 10_000 });
+await page.getByTestId("notch-compose-idle").click();
+await page.waitForTimeout(700);
+await page.screenshot({ path: `${OUT}/05-home-chat.png`, animations: "disabled" });
+await page.getByTestId("notch-row-sessions").first().click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/06-home-sessions.png`, animations: "disabled" });
+await page.getByRole("button", { name: "New bot" }).click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/07-new-bot.png`, animations: "disabled" });
+await page.getByRole("button", { name: "Settings" }).click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${OUT}/08-settings.png`, animations: "disabled" });
 // The dock cards.
 const dock = await context.newPage();
 await dock.goto(`${BASE}/notch.html?dock=1`, { waitUntil: "load" });
 await dock.waitForSelector("[data-testid=notch-dock]", { timeout: 15_000 });
 await dock.waitForTimeout(700);
-await dock.setViewportSize({ width: 320, height: 300 });
+await dock.setViewportSize({ width: 320, height: 520 });
 await dock.screenshot({ path: `${OUT}/05-dock.png`, animations: "disabled" });
 console.log("errors:", errors.length ? errors : "none");
 await browser.close();

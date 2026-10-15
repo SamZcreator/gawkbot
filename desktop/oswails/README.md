@@ -50,12 +50,22 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
   ear shows the agents that most need looking at plus a count of things
   waiting on you. The gawkbots are their orbs (Nex's mascots), animated
   per mood: working, idle, needs you, error, done.
-- **Hover**: a Force Touch trackpad tap (`NSHapticFeedbackManager`) and the
-  strip drops into a panel: what needs you (one-tap answers through
-  `/requests/answer`), every agent with who made it and where it runs, and a
-  box that messages the Chief of Staff's DM through `/messages`.
-- **Peek**: when something new needs you, the notch taps and opens for four
-  seconds on its own. That is the notification.
+- **Hover**: a Force Touch trackpad tap (`NSHapticFeedbackManager`) and a
+  short list drops out of the notch (`web/src/notch/home/NotchPeek.tsx`):
+  one "Suggestions" row for the office's ideas, the bots most worth a look
+  (face, name, time, last line, a dot when something is new), and one
+  "Sessions" row for the terminal sessions on this Mac. Clicking a row opens
+  Home on it.
+- **Home**: ⌥Space, a row, or a card at the top right opens Home, two panes
+  and resizable (default 760x500, remembered): a sidebar with search, a new
+  bot, the Suggestions group, every bot, the Sessions group and settings,
+  and beside it the picked pane: the suggestions carousel, a bot's chat (its
+  open question inside it, what it is doing, the box with its face on the
+  microphone), the sessions, a new bot, or settings with its own nav.
+- **Nothing pops out by itself**: a new question makes a sound and its
+  bot's card appears at the top right; the notch never opens on its own,
+  and a terminal session finishing is a dot on its row, never a card, a
+  sound, or a line spoken out loud.
 - **No notch**: the same strip renders as a pill at the top centre of the
   screen.
 - **Full view and back**: the panel's "Full view" button (or O) opens the
@@ -66,21 +76,17 @@ non-activating `NSPanel` at status-bar level on every Space, hosting a
 - **Sounds**: Saturday-morning foley, one cue per moment: a slide whistle
   and a spring for a question, a counter bell for an approval, the muted sad
   trombone for an error, a xylophone run and a cymbal for a finish, a bubble
-  pop for a sent reply, a squeaky "yoo-hoo" for a peek, gibberish for bored
-  chatter. All synthesized live with Web Audio (`web/src/notch/sounds.ts`),
-  with a mute toggle in the panel.
-- **Antics**: now and then an agent peeks out from under the notch for no
-  reason. When several need you they pile onto the notch, and if you leave
-  them waiting they start talking to each other below it
-  (`web/src/notch/antics.ts`). The collapsed panel grows a transparent
-  "stage" below the strip for this; only the strip itself reacts to hover.
+  pop for a sent reply. All synthesized live with Web Audio (`web/src/notch/sounds.ts`).
+- **Antics**: when several need you they pile onto the strip, and get
+  restless if you leave them waiting (`web/src/notch/antics.ts`). Nothing
+  hangs below the strip: what a bot has to say goes to its card at the top
+  right, where the whole line fits.
 - **Keyboard**: ⌥Space opens the notch from anywhere, or ⌃⌥Space when
   another app owns ⌥Space (Carbon `RegisterEventHotKey`, so no Accessibility
   permission is needed). The page is told which one it got (`hk` in the
-  page URL) and its first-run tour teaches that one. ↑/↓ move through the
-  replies on offer, ↵ sends, 1–9 pick on the selected card, J/K move between
-  cards, R replies, D marks a finished turn done, M messages the Chief of
-  Staff, hold V to talk, Esc closes. The
+  page URL). ↑/↓ move through the replies on offer, ↵ sends, 1–9 pick on
+  the open question, J/K move between the bots waiting on you, R replies, M
+  messages the Chief of Staff, hold V to talk, Esc closes. The
   panel becomes key while open but is non-activating, so the app you were in
   stays active.
 - **Voice**: hold V (or the mic button) to talk. `SFSpeechRecognizer` turns

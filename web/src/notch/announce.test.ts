@@ -70,6 +70,18 @@ describe("what bots say out loud", () => {
     ).toBe("Ops is done.");
   });
 
+  it("never speaks for a terminal session finishing", () => {
+    const k = known(BUSY_OFFICE);
+    const session: NotchState = {
+      ...WITH_DONE,
+      agents: [
+        ...WITH_DONE.agents,
+        { slug: "ops", name: "Ops", mood: "idle", kind: "session" },
+      ],
+    };
+    expect(announcements(k, session).lines).toEqual([]);
+  });
+
   it("keeps a long line short", () => {
     const long = "a".repeat(400);
     const line = askLine(

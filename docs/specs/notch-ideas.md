@@ -1,11 +1,16 @@
 # Daily ideas: bots worth having
 
 Once a day the office looks across the integrations you connected and
-proposes a few bots worth having. They show in the notch as cards under
-"Suggested for you": a character, a name, the integration it would work
-through, a promise in its own words that cites what it saw, why now, and
-how often. No sends an idea away; "Yes, make it and go" creates the bot
-and starts it. Nothing is created without that click.
+proposes a few bots worth having. They wait in one "Suggestions" row at
+the top of the notch's sidebar and its hover list, never as notifications:
+the row shows how many and the first promise. Opening it shows "Suggested
+for you", one card at a time: a character, a name, the integration it
+would work through, a promise in its own words that cites what it saw, why
+now, how often, and "Want to bring me on as your release checker?". No
+sends an idea away; "Yes, make it and go" creates the bot and starts it.
+Nothing is created without that click. The morning's look is said out loud
+once ("3 ideas for new bots, when you're ready"); the notch never opens by
+itself for it.
 
 Code: `internal/team/broker_notch_ideas.go` (cards, store, vetting),
 `broker_notch_ideas_scan.go` (the look), `broker_notch_ideas_accept.go`
@@ -24,7 +29,7 @@ Code: `internal/team/broker_notch_ideas.go` (cards, store, vetting),
 
 ## When
 
-Every day at the hour you chose (Settings, Ideas; 9 by default), while
+Every day at the hour you chose (Settings, Suggestions; 9 by default), while
 this Mac is awake; caught up after sleep, never twice in a day. "Look now"
 by hand is allowed once an hour. The look runs under the `notch-ideas`
 system cron, so it appears in Scheduled Tasks like any other, and one

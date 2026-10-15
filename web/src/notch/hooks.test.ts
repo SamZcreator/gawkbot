@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { BUSY_OFFICE } from "./fixtures";
 import {
   type KeyHandlers,
+  moodTransitions,
   moveChoiceFocus,
   moveOptionFocus,
   runKeyAction,
@@ -67,6 +68,21 @@ describe("runKeyAction", () => {
 
   it("ignores keys that are not ours", () => {
     expect(runKeyAction({ type: "none" }, handlers())).toBe(false);
+  });
+});
+
+describe("moodTransitions", () => {
+  it("sounds a bot finishing, and never a terminal session", () => {
+    const prev = new Map([
+      ["scout", "working" as const],
+      ["cc-1", "working" as const],
+    ]);
+    expect(
+      moodTransitions(prev, [
+        { slug: "scout", name: "Scout", mood: "done" },
+        { slug: "cc-1", name: "A session", mood: "done", kind: "session" },
+      ]),
+    ).toEqual(["done"]);
   });
 });
 

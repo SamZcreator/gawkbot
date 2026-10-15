@@ -233,7 +233,7 @@ func boundNotchIdeaEvidence(in []notchIdeaEvidence) []notchIdeaEvidence {
 }
 
 const notchIdeasJudgeSystem = `You propose bots for a small office of AI bots that works for one person. You see a short list of what their connected tools hold right now (titles, subjects, numbers; ids in brackets). Propose up to 5 bots worth having, each tied to ONE of the connected integrations and grounded in the items you were shown.
-Reply with JSON only: {"ideas":[{"name":"Release Checker","role":"one line","integration":"github","promise":"first person, one or two sentences, naming real items from the list","rationale":"why now, one sentence","cadence":"a 5-field cron or empty","first_task":"what it does first, concretely","evidence":["github-3","github-7"]}]}
+Reply with JSON only: {"ideas":[{"name":"Release Checker","role":"its job title, two or three words, like release checker","integration":"github","promise":"first person, one or two sentences, naming real items from the list","rationale":"why now, one sentence","cadence":"a 5-field cron or empty","first_task":"what it does first, concretely","evidence":["github-3","github-7"]}]}
 Rules: name under 40 characters, promise under 280, no bot the office already has, evidence ids only from the list, cadence no more often than hourly, and nothing invented.`
 
 // notchIdeasScanDue says whether the automatic scan should run now.

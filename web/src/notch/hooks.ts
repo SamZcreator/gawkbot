@@ -5,31 +5,16 @@ import {
   useCallback,
   useEffect,
   useRef,
-  useState,
 } from "react";
 
-import { prefersReducedMotion } from "../lib/orbAvatar";
-import {
-  type BanterLine,
-  banterScript,
-  gang as gangOf,
-  nextPeekDelayMs,
-  PEEK_DURATION_MS,
-  pickPeeker,
-  seedOf,
-} from "./antics";
-import { postNative } from "./bridge";
 import { keyAction, type NotchAction } from "./keys";
-import type { ComposerState, ReplyTarget } from "./NotchPanel";
-import { claimNudge, nudgeWaitMs } from "./nudge";
+import { claimNudge } from "./nudge";
+import type { ComposerState, ReplyTarget } from "./shared";
 import { play, soundForAttention } from "./sounds";
 import type { Mood, NotchAgent, NotchAttention, NotchState } from "./types";
 import { startVoice, type VoiceSession } from "./voice";
 
 // The notch's behaviour, one concern per hook. NotchApp wires them together.
-
-const LINE_MS = 3_200;
-const BETWEEN_SCRIPTS_MS = 7_000;
 
 /**
  * Ids of attention items that were not in `prev`. The first snapshot only
@@ -52,7 +37,8 @@ export function moodTransitions(
   if (prev === null) return [];
   const out: ("error" | "done")[] = [];
   for (const a of agents) {
-    if (prev.get(a.slug) === a.mood) continue;
+    // Terminal sessions start and finish all day: they make no sound.
+    if (a.kind === "session" || prev.get(a.slug) === a.mood) continue;
     if (a.mood === "error" || a.mood === "done") out.push(a.mood);
   }
   return out;
@@ -74,7 +60,7 @@ export function trackFirstSeen(
 }
 
 /**
- * Sounds and the native tap/peek when something new happens. Returns when
+ * Sounds when something new happens. Returns when
  * this notch first saw each open ask (the boredom clock runs from it).
  */
 export function useAttentionSignals(
@@ -88,21 +74,12 @@ export function useAttentionSignals(
     const fresh = newAttentionIds(seen.current, state);
     seen.current = new Set(state.attention.map((a) => a.id));
     trackFirstSeen(firstSeen.current, state.attention, Date.now());
-    // A new question nudges (a sound, and the notch peeks open) at most
-    // once in five minutes (nudge.ts); in between, the count on the notch
-    // goes up and that is all. Play never spends this turn.
+    // A new question makes a sound at most once in five minutes (nudge.ts).
+    // The notch never opens by itself: the asker's card at the top right
+    // (NotchDock.tsx) says what it needs.
     if (fresh.length > 0 && claimNudge("ask")) {
       const item = state.attention.find((a) => a.id === fresh[0]);
       play(soundForAttention(item?.kind ?? ""));
-      // Staying in means the notch does not open by itself. The sound (it
-      // has its own mute) and the count on the notch still say someone asked.
-      if (!staysInNotch(state)) {
-        postNative({
-          type: "attention",
-          count: state.attention.length,
-          headline: state.headline,
-        });
-      }
     }
     for (const s of moodTransitions(moods.current, state.agents)) play(s);
     moods.current = new Map(state.agents.map((a) => [a.slug, a.mood]));
@@ -123,142 +100,6 @@ function useLatest<T>(value: T): MutableRefObject<T> {
   const ref = useRef(value);
   ref.current = value;
   return ref;
-}
-
-/**
- * The bored gang's conversation. Restarts only when WHO is waiting changes,
- * not on every poll; reads the latest asks through refs.
- */
-export function useBanter(
-  chatting: boolean,
-  attention: NotchAttention[],
-  agents: NotchAgent[],
-): BanterLine | null {
-  const [line, setLine] = useState<BanterLine | null>(null);
-  const latest = useLatest({ attention, agents });
-  const gangKey = gangOf(attention, agents)
-    .map((g) => g.slug)
-    .join(",");
-  useEffect(() => {
-    if (!chatting || gangKey === "") {
-      setLine(null);
-      return;
-    }
-    let cancelled = false;
-    let timer = 0;
-    let round = 0;
-    const runScript = () => {
-      // Chatter is play: it waits five minutes after anything else.
-      if (!claimNudge("play")) {
-        setLine(null);
-        timer = window.setTimeout(runScript, nudgeWaitMs() + 1_000);
-        return;
-      }
-      const script = banterScript(
-        latest.current.attention,
-        latest.current.agents,
-        round++,
-      );
-      let i = 0;
-      const next = () => {
-        if (cancelled) return;
-        if (i >= script.length) {
-          setLine(null);
-          timer = window.setTimeout(runScript, BETWEEN_SCRIPTS_MS);
-          return;
-        }
-        const l = script[i++];
-        setLine(l);
-        play("babble", seedOf(l.speaker));
-        timer = window.setTimeout(next, LINE_MS);
-      };
-      next();
-    };
-    runScript();
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [chatting, gangKey, latest]);
-  return line;
-}
-
-/** How long the stage stays open for an arrival: the pop, then the flight. */
-export const ARRIVAL_MS = 1_650;
-
-/**
- * The agent that just asked something, while the notch is closed: it pops
- * into being under the notch and flies up into the ear (NotchArrival). One
- * at a time; a second ask during a flight joins the gang without one. Nobody
- * flies when the notch is open (the question card arrives instead) or for
- * people who have asked for less motion.
- */
-export function useArrival(
-  state: NotchState | null,
-  expanded: boolean,
-): NotchAgent | null {
-  const [arrival, setArrival] = useState<NotchAgent | null>(null);
-  const seen = useRef<Set<string> | null>(null);
-  const flying = useRef(false);
-  const latestExpanded = useLatest(expanded);
-  useEffect(() => {
-    if (!state) return;
-    const fresh = newAttentionIds(seen.current, state);
-    seen.current = new Set(state.attention.map((a) => a.id));
-    if (
-      fresh.length === 0 ||
-      flying.current ||
-      latestExpanded.current ||
-      staysInNotch(state) ||
-      prefersReducedMotion()
-    ) {
-      return;
-    }
-    const item = state.attention.find((a) => a.id === fresh[0]);
-    const who = state.agents.find((a) => a.slug === item?.from);
-    if (!(who && claimNudge("ask"))) return;
-    flying.current = true;
-    setArrival(who);
-    window.setTimeout(() => {
-      flying.current = false;
-      setArrival(null);
-    }, ARRIVAL_MS);
-  }, [state, latestExpanded]);
-  return expanded ? null : arrival;
-}
-
-/** Now and then, an agent peeks out from under the notch. Just for fun. */
-export function usePeeks(
-  agents: NotchAgent[],
-  attention: NotchAttention[],
-  blocked: boolean,
-  everyMs: number,
-): NotchAgent | null {
-  const [peeker, setPeeker] = useState<NotchAgent | null>(null);
-  const latest = useLatest({ agents, attention, blocked });
-  useEffect(() => {
-    let timer = 0;
-    let hide = 0;
-    const schedule = () => {
-      timer = window.setTimeout(() => {
-        const { agents: a, attention: att, blocked: b } = latest.current;
-        const busy = new Set(gangOf(att, a).map((g) => g.slug));
-        const who = b ? null : pickPeeker(a, busy, Math.random);
-        if (who && claimNudge("play")) {
-          setPeeker(who);
-          play("peek");
-          hide = window.setTimeout(() => setPeeker(null), PEEK_DURATION_MS);
-        }
-        schedule();
-      }, everyMs || nextPeekDelayMs(Math.random));
-    };
-    schedule();
-    return () => {
-      window.clearTimeout(timer);
-      window.clearTimeout(hide);
-    };
-  }, [everyMs, latest]);
-  return peeker;
 }
 
 /** Push-to-talk into the composer. Returns setVoice(on). */

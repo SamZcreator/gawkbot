@@ -6,7 +6,7 @@ import {
   sendMessage,
   stopBot,
 } from "../api";
-import { dmChannel } from "../NotchPanel";
+import { dmChannel } from "../shared";
 import type { NotchState } from "../types";
 
 /**

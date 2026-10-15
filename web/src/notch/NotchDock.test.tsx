@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { dockAgents } from "./dock";
+import { DONE_CARD_MS, dockAgents, dockCards, trackDone } from "./dock";
 import type { DockMessage } from "./dockBridge";
 import { BUSY_OFFICE, QUIET_OFFICE } from "./fixtures";
 import { NotchDock } from "./NotchDock";
@@ -99,21 +99,87 @@ describe("the dock page", () => {
     );
   });
 
-  it("opens history and the DM in the full view, and stops one bot", async () => {
-    served = AT_WORK;
+  it("shows the whole line, more behind History, opens the notch on the bot, and stops it", async () => {
+    served = {
+      ...AT_WORK,
+      agents: AT_WORK.agents.map((a) =>
+        a.slug === "ops"
+          ? {
+              ...a,
+              detail:
+                "Moving 14 screenshots from Desktop into Shots, then checking for duplicates before I name the rest by date",
+              last: {
+                from: "ops",
+                text: "Found 14 screenshots from last week.",
+              },
+            }
+          : a,
+      ),
+    };
     mount();
-    await screen.findByTestId("notch-dock-ops");
+    const card = await screen.findByTestId("notch-dock-ops");
+    expect(card).toHaveTextContent(
+      "Moving 14 screenshots from Desktop into Shots, then checking for duplicates before I name the rest by date",
+    );
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "History" }));
+    await user.click(screen.getByRole("button", { name: /History/ }));
+    expect(
+      screen.getByText("Found 14 screenshots from last week."),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Open" }));
-    const opened = posted.filter((m) => m.type === "open");
-    expect(opened).toEqual([
-      { type: "open", path: "/agents/ops" },
-      { type: "open", path: "/channels/human__ops" },
+    expect(posted.filter((m) => m.type === "chat")).toEqual([
+      { type: "chat", slug: "ops" },
     ]);
     await user.click(screen.getByRole("button", { name: "Stop Ops" }));
     expect(stopped).toEqual(["ops"]);
     expect(screen.getByText("Stopping")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop Ops" })).toBeDisabled();
+  });
+});
+
+describe("cards beyond work", () => {
+  const ASKING: NotchState = {
+    ...BUSY_OFFICE,
+    agents: BUSY_OFFICE.agents,
+  };
+
+  it("gives a bot waiting on you a card with its whole question, and never the lead", () => {
+    const cards = dockCards(ASKING, new Map(), new Set(), 0);
+    const gemini = cards.find((c) => c.agent.slug === "gemini");
+    expect(gemini?.kind).toBe("needs_you");
+    expect(gemini?.line).toBe(
+      "Send the launch email? It goes to 1,204 people.",
+    );
+    expect(cards.some((c) => c.agent.slug === "cos")).toBe(false);
+    expect(
+      dockCards(ASKING, new Map(), new Set(["q:req-1"]), 0).some(
+        (c) => c.agent.slug === "gemini",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps a finished bot's card for a while, saying what it last said", () => {
+    const state: NotchState = {
+      ...QUIET_OFFICE,
+      agents: [
+        ...QUIET_OFFICE.agents,
+        {
+          slug: "ops",
+          name: "Ops",
+          mood: "idle",
+          last: { from: "ops", text: "Moved 14 files into Shots." },
+        },
+      ],
+    };
+    const done = trackDone(new Set(["ops"]), state, new Map(), 1_000);
+    expect([...done.keys()]).toEqual(["ops"]);
+    const [card] = dockCards(state, done, new Set(), 2_000);
+    expect(card).toMatchObject({
+      kind: "done",
+      line: "Moved 14 files into Shots.",
+    });
+    expect(dockCards(state, done, new Set(), 1_000 + DONE_CARD_MS + 1)).toEqual(
+      [],
+    );
   });
 });

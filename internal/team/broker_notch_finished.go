@@ -280,14 +280,35 @@ func (b *Broker) withNotchFinished(state notchState) notchState {
 	sort.SliceStable(state.Finished, func(i, j int) bool {
 		return state.Finished[i].CreatedAt > state.Finished[j].CreatedAt
 	})
+	// A terminal session finishing is a dot on its row and nothing more: they
+	// finish all day, so only the office's own bots move the headline.
+	bots := notchFinishedByBots(state)
 	switch {
-	case len(state.Finished) == 0:
+	case len(bots) == 0:
 	case len(state.Attention) == 0:
-		state.Mood, state.Headline = notchFinishedHeadline(state.Finished)
+		state.Mood, state.Headline = notchFinishedHeadline(bots)
 	default:
-		state.Headline = notchCount(len(state.Attention)+len(state.Finished), "thing needs you", "things need you")
+		state.Headline = notchCount(len(state.Attention)+len(bots), "thing needs you", "things need you")
 	}
 	return state
+}
+
+// notchFinishedByBots is the finished turns of office bots, leaving out the
+// terminal sessions found on this Mac.
+func notchFinishedByBots(state notchState) []notchAttention {
+	sessions := map[string]bool{}
+	for _, a := range state.Agents {
+		if a.Kind == notchAgentSession {
+			sessions[a.Slug] = true
+		}
+	}
+	out := make([]notchAttention, 0, len(state.Finished))
+	for _, f := range state.Finished {
+		if !sessions[f.From] {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 func notchFinishedHeadline(items []notchAttention) (string, string) {

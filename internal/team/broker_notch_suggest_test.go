@@ -40,12 +40,12 @@ func TestNotchSuggestionsAreWrittenOnceAndRecommendedFirst(t *testing.T) {
 	}
 	// The first read asks for them (the stub answers inline); the next
 	// read is served from memory.
-	first := b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
-	if first.Finished[0].Suggestions != nil {
-		t.Fatalf("the read that asked already had suggestions: %+v", first.Finished[0])
+	first := b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now)
+	if first.Attention[0].Suggestions != nil {
+		t.Fatalf("the read that asked already had suggestions: %+v", first.Attention[0])
 	}
-	state := b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
-	got := state.Finished[0].Suggestions
+	state := b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now)
+	got := state.Attention[0].Suggestions
 	if len(got) != 2 || got[0].Label != "Ship it" || got[1].Reply != "Add a regression test for the login bug, then merge." {
 		t.Fatalf("suggestions = %+v", got)
 	}
@@ -91,12 +91,12 @@ func TestNotchSuggestionsWaitAfterAFailedCall(t *testing.T) {
 	b := newTestBroker(t)
 	card := notchAttention{ID: "finished:eng@1", Recap: &notchRecap{Reply: "Done."}}
 	now := time.Now()
-	b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
-	b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now.Add(time.Minute))
+	b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now)
+	b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now.Add(time.Minute))
 	if calls != 1 {
 		t.Fatalf("retried within the wait: %d calls", calls)
 	}
-	b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now.Add(notchSuggestRetry+time.Second))
+	b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now.Add(notchSuggestRetry+time.Second))
 	if calls != 2 {
 		t.Fatalf("never retried after the wait: %d calls", calls)
 	}
@@ -152,13 +152,13 @@ func TestNotchSuggestionsRunOnTheChiefOfStaffsRuntime(t *testing.T) {
 	}
 
 	card := notchAttention{ID: "finished:eng@1", Recap: &notchRecap{Reply: "Done. Merge?"}}
-	b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, bound, now)
+	b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, bound, now)
 	if len(kinds) != 1 || kinds[0] != "opencode" {
 		t.Fatalf("suggestions ran on %v, want the lead's opencode", kinds)
 	}
 	// No lead to run them on: nothing is called.
 	other := notchAttention{ID: "finished:ops@1", Recap: &notchRecap{Reply: "Done."}}
-	b.withNotchSuggestions(notchState{Finished: []notchAttention{other}}, true, "", now)
+	b.withNotchSuggestions(notchState{Attention: []notchAttention{other}}, true, "", now)
 	if len(kinds) != 1 {
 		t.Fatalf("called with no lead runtime: %v", kinds)
 	}
@@ -179,14 +179,14 @@ func TestNotchSuggestionsSurviveARestart(t *testing.T) {
 	b := newTestBroker(t)
 	card := notchAttention{ID: "finished:eng@1", Recap: &notchRecap{Reply: "Done. Merge?"}}
 	now := time.Now()
-	b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
+	b.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now)
 
 	again := NewBrokerAt(b.statePath)
-	state := again.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
+	state := again.withNotchSuggestions(notchState{Attention: []notchAttention{card}}, true, "codex", now)
 	if calls != 1 {
 		t.Fatalf("asked again after a restart: %d calls", calls)
 	}
-	if got := state.Finished[0].Suggestions; len(got) != 2 || got[0].Label != "Ship it" {
+	if got := state.Attention[0].Suggestions; len(got) != 2 || got[0].Label != "Ship it" {
 		t.Fatalf("restored suggestions = %+v", got)
 	}
 }
@@ -207,8 +207,8 @@ func TestNotchSuggestionsSayWhileTheyAreBeingWritten(t *testing.T) {
 		{ID: "finished:b@1", Recap: &notchRecap{Reply: "B done."}},
 		{ID: "finished:c@1", Recap: &notchRecap{Reply: "C done."}},
 	}
-	state := b.withNotchSuggestions(notchState{Finished: cards}, true, "codex", now)
-	for _, c := range state.Finished {
+	state := b.withNotchSuggestions(notchState{Attention: cards}, true, "codex", now)
+	for _, c := range state.Attention {
 		if !c.SuggestionsPending || c.Suggestions != nil {
 			t.Fatalf("card %s: pending=%v suggestions=%v", c.ID, c.SuggestionsPending, c.Suggestions)
 		}
@@ -217,17 +217,40 @@ func TestNotchSuggestionsSayWhileTheyAreBeingWritten(t *testing.T) {
 		t.Fatalf("started %d workers for 3 cards, want %d", len(started), notchSuggestWorkers)
 	}
 	// A second read starts no more while both are busy.
-	b.withNotchSuggestions(notchState{Finished: cards}, true, "codex", now)
+	b.withNotchSuggestions(notchState{Attention: cards}, true, "codex", now)
 	if len(started) != notchSuggestWorkers {
 		t.Fatalf("started %d workers, want still %d", len(started), notchSuggestWorkers)
 	}
 	for _, run := range started {
 		run()
 	}
-	state = b.withNotchSuggestions(notchState{Finished: cards}, true, "codex", now)
-	for _, c := range state.Finished {
+	state = b.withNotchSuggestions(notchState{Attention: cards}, true, "codex", now)
+	for _, c := range state.Attention {
 		if c.SuggestionsPending || len(c.Suggestions) != 2 {
 			t.Fatalf("card %s after the workers: pending=%v n=%d", c.ID, c.SuggestionsPending, len(c.Suggestions))
 		}
+	}
+}
+
+func TestNotchSuggestionsAreNeverWrittenForAFinishedTurn(t *testing.T) {
+	calls := 0
+	stubNotchSuggest(t, func(_ context.Context, _ string, _ string) (string, error) {
+		calls++
+		return twoSuggestions, nil
+	})
+	b := newTestBroker(t)
+	now := time.Now()
+	card := notchAttention{
+		ID: "finished:cc-1@1", Kind: "finished", From: "cc-1", FromName: "A session",
+		Recap: &notchRecap{Asked: "Fix the login bug", Reply: "Fixed it. Want me to merge?"},
+	}
+	for i := 0; i < 2; i++ {
+		state := b.withNotchSuggestions(notchState{Finished: []notchAttention{card}}, true, "codex", now)
+		if state.Finished[0].Suggestions != nil || state.Finished[0].SuggestionsPending {
+			t.Fatalf("a finished turn got replies: %+v", state.Finished[0])
+		}
+	}
+	if calls != 0 {
+		t.Fatalf("model called %d times for a finished turn, want none", calls)
 	}
 }

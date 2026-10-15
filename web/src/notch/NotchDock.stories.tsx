@@ -1,27 +1,31 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import "./notch.css";
-import { BUSY_OFFICE } from "./fixtures";
+import type { DockCard } from "./dock";
 import { NotchDockCards } from "./NotchDock";
-import type { NotchState } from "./types";
 
-const AT_WORK: NotchState = {
-  ...BUSY_OFFICE,
-  agents: [
-    {
-      slug: "ops",
-      name: "Ops",
-      mood: "working",
-      detail: "Moving last week's screenshots into Shots",
-      runtime: { harness: "claude-code", harness_name: "Claude Code" },
-    },
-    {
-      slug: "release-checker",
-      name: "Release Checker",
-      mood: "working",
-      detail: "Reading the changes waiting on the deploy",
-    },
-  ],
+const OPS: DockCard = {
+  kind: "working",
+  agent: {
+    slug: "ops",
+    name: "Ops",
+    mood: "working",
+    runtime: { harness: "claude-code", harness_name: "Claude Code" },
+  },
+  line: "I'll check PR #4091 for the design context, then compare how agent products present sparse knowledge and build the three-state mock.",
+  history: ["Found 12 products worth comparing."],
+};
+const ASKING: DockCard = {
+  kind: "needs_you",
+  agent: { slug: "scout", name: "Rita Scout", mood: "needs_you" },
+  line: "Start work on Find prospective customers for nex.ai? Approve and I begin; decline and nothing happens.",
+  history: [],
+};
+const DONE: DockCard = {
+  kind: "done",
+  agent: { slug: "release-checker", name: "Release Checker", mood: "idle" },
+  line: "I've reviewed 12 products. #4097 is safe to deploy.",
+  history: ["Reading the changes waiting on the deploy"],
 };
 
 const noop = () => {};
@@ -30,11 +34,12 @@ const meta: Meta<typeof NotchDockCards> = {
   title: "Notch / Dock",
   component: NotchDockCards,
   args: {
-    agents: AT_WORK.agents,
-    state: AT_WORK,
+    cards: [OPS, ASKING, DONE],
+    done: new Map(),
     stopping: new Set<string>(),
-    onOpen: noop,
+    onChat: noop,
     onStop: noop,
+    onClose: noop,
   },
   decorators: [
     (Story) => (
@@ -57,17 +62,10 @@ export default meta;
 
 type Story = StoryObj<typeof NotchDockCards>;
 
-/** Two bots at work: the cards the Mac app floats at the top right. */
-export const TwoWorking: Story = {};
+/** Working, waiting on you, and just done: the cards at the top right. */
+export const ThreeKinds: Story = {};
 
 /** One stop asked for, not yet taken: the button rests until the bot leaves. */
 export const Stopping: Story = {
-  args: { stopping: new Set(["ops"]) },
-};
-
-/** One bot, no detail line yet. */
-export const OneJustStarted: Story = {
-  args: {
-    agents: [{ slug: "scout", name: "Scout", mood: "working" }],
-  },
+  args: { cards: [OPS], stopping: new Set(["ops"]) },
 };

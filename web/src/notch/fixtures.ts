@@ -217,3 +217,67 @@ export const CONSENT_OFFICE: NotchState = {
     },
   ],
 };
+
+/** The busy office with ideas waiting and terminal sessions on this Mac. */
+export const HOME_OFFICE: NotchState = {
+  ...BUSY_OFFICE,
+  agents: [
+    ...BUSY_OFFICE.agents.map((a) =>
+      a.slug === "scout"
+        ? {
+            ...a,
+            mood: "idle" as const,
+            unread: 2,
+            last: {
+              from: "scout",
+              text: "Found three companies hiring a Head of RevOps.",
+              at: "2026-10-12T11:40:00Z",
+            },
+          }
+        : a,
+    ),
+    {
+      slug: "cc-1",
+      name: "Fix the login redirect",
+      mood: "idle",
+      kind: "session",
+      tool: "claude-code",
+      tool_name: "Claude Code",
+      project: "billing",
+      state: "your_turn",
+      updated_at: "2026-10-12T11:50:00Z",
+      last_said: "Tests pass. Want me to merge it?",
+    },
+    {
+      slug: "cx-2",
+      name: "Plan the agent architecture",
+      mood: "working",
+      kind: "session",
+      tool: "codex",
+      tool_name: "Codex",
+      project: "agentOS",
+      state: "working",
+      updated_at: "2026-10-12T11:55:00Z",
+    },
+  ],
+  ideas: {
+    enabled: true,
+    checked_at: "2026-10-12T09:00:00Z",
+    items: [
+      {
+        id: "idea:aaa",
+        fingerprint: "aaa",
+        name: "Release Checker",
+        role: "Release checker",
+        integration: "github",
+        integration_name: "GitHub",
+        promise:
+          "Before #4097 goes to production, I'll read every change waiting on the deploy and call go or no go.",
+        rationale: "Two pull requests wait on it right now.",
+        cadence_label: "Every weekday at 9:00, while this Mac is awake",
+        first_task: "Read the changes waiting on #4097.",
+        created_at: "2026-10-12T09:00:00Z",
+      },
+    ],
+  },
+};

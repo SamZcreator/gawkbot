@@ -1,12 +1,12 @@
 import { announceOn, speak } from "./announce";
-import { postNative } from "./bridge";
 import { staysInNotch } from "./hooks";
 import type { NotchState } from "./types";
 
 /**
- * The morning nudge: when a new look has produced ideas, the notch peeks
- * once and says so out loud, so you hear "3 ideas for new bots" with your
- * coffee and not at all after that. Once per look (checked_at), remembered
+ * The morning nudge: when a new look has produced ideas, the notch says so
+ * out loud once, so you hear "3 ideas for new bots" with your coffee and
+ * not at all after that. It never opens by itself: the ideas wait in the
+ * Suggestions group. Once per look (checked_at), remembered
  * across launches; never while the notch is open, and never when bots are
  * told to stay inside.
  */
@@ -40,12 +40,11 @@ export function nudgeForIdeas(
   expanded: boolean,
 ): string | null {
   const ideas = state?.ideas;
-  if (!(ideas && ideas.checked_at) || ideas.items.length === 0) return null;
+  if (!ideas?.checked_at || ideas.items.length === 0) return null;
   if (expanded || staysInNotch(state)) return null;
   if (lastNudged() === ideas.checked_at) return null;
   rememberNudged(ideas.checked_at);
   const line = ideasLine(ideas.items.length);
-  postNative({ type: "attention", count: ideas.items.length, headline: line });
   if (announceOn(state)) speak(line);
   return line;
 }

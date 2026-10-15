@@ -152,10 +152,9 @@ func (b *Broker) withNotchSuggestions(state notchState, owner bool, kind string,
 	s := &b.notchSuggest
 	s.mu.Lock()
 	s.loadLocked(b.notchSuggestPath())
-	finished := make([]notchAttention, len(state.Finished))
-	for i, item := range state.Finished {
-		finished[i] = s.attachLocked(item, kind, now)
-	}
+	// A finished turn gets no written replies: it is a dot on its bot's row,
+	// not a card, and a call per finished turn of every terminal session was
+	// a model call nobody read.
 	attention := make([]notchAttention, len(state.Attention))
 	for i, item := range state.Attention {
 		if item.secret || hasOneTapOption(item.Options) {
@@ -170,7 +169,7 @@ func (b *Broker) withNotchSuggestions(state notchState, owner bool, kind string,
 	for i := 0; i < start; i++ {
 		notchSuggestGo(b.runNotchSuggestions)
 	}
-	state.Finished, state.Attention = finished, attention
+	state.Attention = attention
 	return state
 }
 

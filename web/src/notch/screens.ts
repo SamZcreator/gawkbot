@@ -1,21 +1,30 @@
-import type { ReplyTarget } from "./NotchPanel";
+import type { ReplyTarget } from "./shared";
 
 /**
- * What the open notch shows: Home (what needs you, who is working, the
- * lead's box), or one bot's thread. Tapping a bot, or Reply on its card,
- * opens its thread with the reply box ready; Esc and ‹ come back Home,
- * and so does closing the notch.
+ * What the open notch's right pane shows. Home is the default pick
+ * (home/model.ts: the bot waiting on you, else the suggestions, else the
+ * lead); the sidebar picks the others. Esc comes back Home, and so does
+ * closing the notch.
  */
 export type NotchScreen =
   | { kind: "home" }
   | { kind: "agent"; slug: string; name: string; channel: string }
+  | { kind: "suggestions" }
+  | { kind: "sessions" }
+  | { kind: "new" }
   | { kind: "settings" };
 
 export const SETTINGS: NotchScreen = { kind: "settings" };
 
 export const HOME: NotchScreen = { kind: "home" };
 
-/** The screen a reply target belongs on: a bot's thread, or none (a card's answer stays Home). */
+export const SUGGESTIONS: NotchScreen = { kind: "suggestions" };
+
+export const SESSIONS: NotchScreen = { kind: "sessions" };
+
+export const NEW_BOT: NotchScreen = { kind: "new" };
+
+/** The screen a reply target belongs on: a bot's chat, or none (a card's answer stays where it is). */
 export function screenForTarget(target: ReplyTarget): NotchScreen | null {
   if (target.kind !== "message") return null;
   return {

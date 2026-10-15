@@ -4,12 +4,14 @@
 // Page → native, via window.webkit.messageHandlers.gawkDock.postMessage:
 //   { type: "dock", height, count }   the room the cards need; 0 hides them
 //   { type: "open", path }            open the main window at path
+//   { type: "chat", slug }            open the notch on that bot's chat
 //
 // Outside the Mac app (a browser, Storybook, tests) every call is a no-op.
 
 export type DockMessage =
   | { type: "dock"; height: number; count: number }
-  | { type: "open"; path: string };
+  | { type: "open"; path: string }
+  | { type: "chat"; slug: string };
 
 interface DockHost {
   webkit?: {

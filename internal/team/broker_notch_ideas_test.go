@@ -272,6 +272,8 @@ func TestNotchHeadlineOffersIdeasWhenQuiet(t *testing.T) {
 	t.Setenv("HOME", tmp)
 	t.Setenv("WUPHF_RUNTIME_HOME", tmp)
 	withIdeasFakes(t, ideasJudgeReply)
+	// The sessions on the machine running the test would make it busy.
+	stubLocalSessions(t, nil)
 	b := newTestBroker(t)
 	b.token = "owner-token"
 	if s := notchStateAs(t, b, "owner-token", ""); s.Mood != MoodIdle || strings.Contains(s.Headline, "idea") {

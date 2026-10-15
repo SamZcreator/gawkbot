@@ -65,9 +65,13 @@ const meta: Meta<typeof NotchThread> = {
     onComposerCancel: noop,
     onVoice: noop,
     onKeyboard: noop,
-    onBack: noop,
     onOpen: noop,
     onStop: noop,
+    onCompose: noop,
+    onSelect: noop,
+    onAnswer: noop,
+    onReply: noop,
+    onSend: noop,
   },
   decorators: [
     (Story) => (

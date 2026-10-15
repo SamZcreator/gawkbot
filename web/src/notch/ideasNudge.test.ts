@@ -57,17 +57,12 @@ afterEach(() => {
 });
 
 describe("the morning nudge for ideas", () => {
-  it("peeks and speaks once per look, closed only, and not when bots stay inside", () => {
+  it("speaks once per look, never opens the notch, closed only, and not when bots stay inside", () => {
     expect(nudgeForIdeas(WITH_IDEAS, true)).toBeNull();
     expect(nudgeForIdeas(WITH_IDEAS, false)).toBe(
       "2 ideas for new bots, when you're ready",
     );
     expect(posted).toEqual([
-      {
-        type: "attention",
-        count: 2,
-        headline: "2 ideas for new bots, when you're ready",
-      },
       { type: "say", text: "2 ideas for new bots, when you're ready" },
     ]);
     expect(nudgeForIdeas(WITH_IDEAS, false)).toBeNull();

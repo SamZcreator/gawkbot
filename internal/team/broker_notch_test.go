@@ -330,9 +330,9 @@ func TestNotchListsRunningSessionsAsAgentsForTheOwnerOnly(t *testing.T) {
 	if r := owner.Agents[0].Runtime; r == nil || r.Harness == "" || r.HarnessName == "" {
 		t.Fatalf("an office bot has a runtime too, got %+v", r)
 	}
-	// One session is busy and one finished its turn: the finished one is
-	// waiting on the human, so that is what the notch says.
-	if owner.Mood != MoodNeedsYou || owner.Headline != "Tidy the migration scripts finished. Your turn." {
+	// One session is busy and one finished its turn. A session finishing is
+	// a dot on its row, never the headline: the busy one is what it says.
+	if owner.Mood != MoodWorking || owner.Headline != "1 working on this Mac" {
 		t.Fatalf("mood=%q headline=%q", owner.Mood, owner.Headline)
 	}
 	if len(owner.Finished) != 1 || owner.Finished[0].From != "session.codex.bbb" || owner.Finished[0].Question != "Run them on staging?" {

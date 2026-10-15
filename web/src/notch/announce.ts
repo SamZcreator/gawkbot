@@ -74,6 +74,9 @@ export function announcements(
   }
   for (const card of state.finished ?? []) {
     if (prev.finished.has(card.id)) continue;
+    // Terminal sessions finish all day; only the office's bots say so.
+    const from = state.agents.find((a) => a.slug === card.from);
+    if (from?.kind === "session") continue;
     lines.push(doneLine(card, state));
   }
   return { known: next, lines };
