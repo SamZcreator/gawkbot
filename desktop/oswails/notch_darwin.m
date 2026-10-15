@@ -108,7 +108,7 @@ static const CGFloat kMaxStageHeight = 160.0;
 }
 @end
 
-@interface GawkNotchController : NSObject <WKScriptMessageHandler, WKNavigationDelegate>
+@interface GawkNotchController : NSObject <WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate>
 @property(nonatomic, strong) GawkNotchPanel *panel;
 @property(nonatomic, strong) GawkNotchContentView *content;
 @property(nonatomic, strong) WKWebView *webView;
@@ -292,6 +292,7 @@ static OSStatus GawkHotKeyHandler(EventHandlerCallRef next, EventRef event, void
 	self.webView = [[WKWebView alloc] initWithFrame:self.content.bounds configuration:config];
 	self.webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 	self.webView.navigationDelegate = self;
+	self.webView.UIDelegate = self;
 	// Transparent: only the page's black .notch-shell paints; the rest of
 	// the panel shows the desktop through it.
 	[self.webView setValue:@NO forKey:@"drawsBackground"];
@@ -1074,6 +1075,28 @@ static BOOL gawkOwnsItsPrivacyPrompts(void) {
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
 	(void)webView;
 	[self retryLoadSoon];
+}
+
+#pragma mark Microphone for the page
+
+// Talking to the office out loud runs in the page (WebRTC), so the page
+// asks for the microphone. The office's own origin gets it without a
+// second dialog: macOS has already asked once, for the app, with the usage
+// string in Info.plist. Anything else, and the camera, is refused.
+- (void)webView:(WKWebView *)webView
+	requestMediaCapturePermissionForOrigin:(WKSecurityOrigin *)origin
+	initiatedByFrame:(WKFrameInfo *)frame
+	type:(WKMediaCaptureType)type
+	decisionHandler:(void (^)(WKPermissionDecision))decisionHandler API_AVAILABLE(macos(12.0)) {
+	(void)webView;
+	(void)frame;
+	NSURL *office = [NSURL URLWithString:self.officeURL];
+	BOOL ours = office != nil && [origin.host isEqualToString:office.host] && origin.port == (office.port ? office.port.integerValue : 0);
+	if (ours && type == WKMediaCaptureTypeMicrophone && gawkOwnsItsPrivacyPrompts()) {
+		decisionHandler(WKPermissionDecisionGrant);
+		return;
+	}
+	decisionHandler(WKPermissionDecisionDeny);
 }
 
 @end

@@ -312,6 +312,11 @@ export interface KeyHandlers {
   lead: () => ReplyTarget | null;
   open: (target: ReplyTarget) => void;
   voice: (on: boolean) => void;
+  /**
+   * Talk to the office out loud (realtime/useRealtime.ts). Returns false
+   * when that is not possible here, and the key dictates instead.
+   */
+  talk?: (on: boolean) => boolean;
   close: () => void;
   /** Open the full app at the selected question's conversation. */
   openFull: () => void;
@@ -354,6 +359,9 @@ export function runKeyAction(action: NotchAction, h: KeyHandlers): boolean {
       return true;
     }
     case "voice_start": {
+      // With no reply box open the key is a conversation with the office
+      // when one is possible; inside a box it dictates into the box.
+      if (!h.composer && h.talk?.(true)) return true;
       const t = h.composer?.target ?? h.reply();
       if (!t) return false;
       if (!h.composer) h.open(t);
@@ -486,8 +494,10 @@ export function useNotchKeys(active: boolean, handlers: KeyHandlers): void {
           latest.current.selected,
           "up",
         ).type === "voice_stop"
-      )
+      ) {
+        latest.current.talk?.(false);
         latest.current.voice(false);
+      }
     };
     window.addEventListener("keydown", onDown);
     window.addEventListener("keyup", onUp);

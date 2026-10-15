@@ -71,6 +71,9 @@ type Config struct {
 	// (speech-to-speech + screen vision). Empty falls back to the compiled
 	// default in ResolveRealtimeModel.
 	RealtimeModel string `json:"realtime_model,omitempty"`
+	// RealtimeVoice is the voice the notch answers in (one of OpenAI's
+	// Realtime voices); empty means the default in broker_realtime_notch.go.
+	RealtimeVoice string `json:"realtime_voice,omitempty"`
 	MinimaxAPIKey string `json:"minimax_api_key,omitempty"`
 	Blueprint     string `json:"blueprint,omitempty"`
 	// Pack is retained as a legacy alias for the active operation blueprint/template.
@@ -904,7 +907,7 @@ func ResolveOpenAIAPIKey() string {
 // DefaultRealtimeModel is the OpenAI Realtime model used by the demo call when
 // nothing is configured. The exact GA model string can drift, so it stays a
 // single override point (env/config) rather than being hardcoded at call sites.
-const DefaultRealtimeModel = "gpt-realtime-2"
+const DefaultRealtimeModel = "gpt-realtime-2.1"
 
 // ResolveRealtimeModel resolves the OpenAI Realtime model for the demo call.
 // Resolution: WUPHF_REALTIME_MODEL env > config file > DefaultRealtimeModel.

@@ -15,7 +15,9 @@ import { NotchHero } from "./NotchHero";
 import { NotchHint } from "./NotchHint";
 import { LessonCard } from "./NotchLesson";
 import { NotchPermissionCard } from "./NotchPermissionCard";
+import { NotchVoiceLine } from "./NotchVoiceLine";
 import { byNeed, finishedSlugs } from "./order";
+import type { RealtimeTalk } from "./realtime/useRealtime";
 import type {
   NotchAgent,
   NotchAttention,
@@ -79,6 +81,8 @@ export interface PanelProps {
   lessonStep?: LessonStep;
   /** Asks macOS for a grant a bot on this Mac needs (Mac app only). */
   onPermission?: (kind: "accessibility" | "screen_recording") => void;
+  /** Talking to the office out loud, when possible (realtime/useRealtime.ts). */
+  voice?: Pick<RealtimeTalk, "phase" | "heard" | "said" | "error">;
   onLessonPracticed?: () => void;
   onLessonSkip?: () => void;
 }
@@ -944,6 +948,14 @@ export function NotchPanel(props: PanelProps) {
       </NotchHero>
 
       <div className="nscroll">
+        {props.voice ? (
+          <NotchVoiceLine
+            phase={props.voice.phase}
+            heard={props.voice.heard}
+            said={props.voice.said}
+            error={props.voice.error}
+          />
+        ) : null}
         <LessonCard
           step={props.lessonStep ?? "done"}
           hotkey={props.hotkey}

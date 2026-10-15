@@ -43,6 +43,7 @@ import { stageHeight, stripShapeFor } from "./NotchStrip";
 import { NotchView } from "./NotchView";
 import { finishedSlugs } from "./order";
 import { drawOnScreen, relayOverlay } from "./overlay";
+import { useRealtime } from "./realtime/useRealtime";
 import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
 import type { NotchState } from "./types";
 import { useAnnounce } from "./useAnnounce";
@@ -309,6 +310,23 @@ export function NotchApp({
     [setVoiceSession],
   );
   useAnnounce(state, talking);
+  // Talking to the office out loud, when the office has a key for it.
+  const talk = useRealtime(expanded);
+  const talkRef = useRef(talk);
+  talkRef.current = talk;
+  const talkKey = useCallback((on: boolean): boolean => {
+    const t = talkRef.current;
+    if (on) {
+      if (!t.available) return false;
+      setTalking(true);
+      hush();
+      t.hold();
+      return true;
+    }
+    setTalking(false);
+    t.release();
+    return true;
+  }, []);
   const openComposer = useCallback(
     (target: ReplyTarget) =>
       setComposer({ target, text: "", listening: false }),
@@ -387,9 +405,11 @@ export function NotchApp({
     lead: leadTarget,
     open: openComposer,
     voice: setVoice,
+    talk: talkKey,
     openFull,
     close: () => {
-      if (composer) cancelComposer();
+      if (talk.phase !== "idle" || talk.said) talk.end();
+      else if (composer) cancelComposer();
       else if (inApp) postNative({ type: "collapse" });
       else setExpanded(false);
     },
@@ -424,6 +444,7 @@ export function NotchApp({
         line={line}
         peeker={peeker}
         lessonStep={lessonStep}
+        voice={talk.available || talk.phase !== "idle" ? talk : undefined}
         onPermission={(kind) => void requestPermission(kind)}
         onLessonPracticed={() => lessonEvent("practiced")}
         onLessonSkip={() => lessonEvent("skipped")}

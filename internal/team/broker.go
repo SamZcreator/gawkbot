@@ -699,6 +699,7 @@ func (b *Broker) StartOnPort(port int) error {
 	// route keeps working rather than starting to 404 silently.
 	mux.HandleFunc("/notifications/nex", b.requireAuth(b.handleAutomationNotifications))
 	mux.HandleFunc("/realtime/session", b.requireAuth(b.handleRealtimeSession))
+	mux.HandleFunc("/realtime/status", b.requireAuth(b.handleRealtimeStatus))
 	mux.HandleFunc("/execute/browser", b.requireAuth(b.handleExecuteBrowser))
 	mux.HandleFunc("/execute/replay", b.requireAuth(b.handleExecuteReplay))
 	mux.HandleFunc("/execute/approve", b.requireAuth(b.handleExecuteApprove))
