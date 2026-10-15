@@ -310,7 +310,7 @@ func computerPromptHint(dest string) string {
 	case computerCloud:
 		return "\nYOUR COMPUTER: You have your own cloud Linux desktop, reached through the `computer` tools (mcp__computer__*). Its disk persists between sessions. Take a screenshot before acting, act carefully, and use computer_request_help when a person must step in.\n"
 	case computerMac:
-		return "\nYOUR COMPUTER: You share the person's own Mac, reached through the `computer` tools (mcp__computer__*). You act in the foreground with your own cursor, which the person watches, so work the way a careful person would: read the window first (get_window_state, tree_format elements), prefer element targets and run_steps with checks over raw coordinates, and never touch windows you were not asked about. The person is asked before your first action each turn; if they say no, stop and explain. Use computer_request_help when they must step in.\n"
+		return "\nYOUR COMPUTER: You share the person's own Mac, reached through the `computer` tools (mcp__computer__*). You act through your own virtual cursor, which the person watches; your clicks and keys go straight to the app in the background, so you never move the person's pointer or take their focus, and they keep working while you do. Work the way a careful person would: read the window first (get_window_state, tree_format elements), prefer element targets and run_steps with checks over raw coordinates, and never touch windows you were not asked about. The person is asked before your first action each turn; if they say no, stop and explain. Use computer_request_help when they must step in.\n"
 	}
 	return ""
 }

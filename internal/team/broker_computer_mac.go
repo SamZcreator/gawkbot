@@ -139,7 +139,7 @@ func (b *Broker) withNotchConsents(state notchState, owner bool) notchState {
 			FromName: a.Name,
 			Title:    "Wants to use this Mac",
 			Question: a.Name + " " + summary + ". Allow it this turn?",
-			Context:  "It acts in the foreground with its own cursor, which you can watch. ⌥Esc stops every agent at once.",
+			Context:  "It works with its own cursor, which you can watch, and never moves yours. ⌥Esc stops every agent at once.",
 			Options: []notchOption{
 				{ID: computer.ConsentAllow, Label: "Allow this turn"},
 				{ID: computer.ConsentAllowAlways, Label: "Always allow", Description: "Never ask again; one switch in Settings turns it back off."},

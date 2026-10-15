@@ -200,7 +200,7 @@ export const CONSENT_OFFICE: NotchState = {
       title: "Wants to use this Mac",
       question: "Ops wants to click and type on this Mac. Allow it this turn?",
       context:
-        "It acts in the foreground with its own cursor, which you can watch. ⌥Esc stops every agent at once.",
+        "It works with its own cursor, which you can watch, and never moves yours. ⌥Esc stops every agent at once.",
       options: [
         { id: "allow", label: "Allow this turn" },
         {

@@ -17,8 +17,10 @@ import (
 //     everything else is refused before it leaves the bot's process.
 //  2. Every call carries the bot's own session, so the driver shows a
 //     cursor in the bot's colour, labelled with its name, that the person
-//     can watch; acting tools are delivered in the foreground unless the
-//     bot asks for the background, because trust comes from seeing it.
+//     can watch. Acting tools are ALWAYS delivered in the background: the
+//     bot works through its own virtual cursor and never moves the
+//     person's pointer or takes focus, so several bots can work at once
+//     while the person keeps using the Mac. A bot cannot ask otherwise.
 //  3. Before a bot's first action of a turn, the person is asked, in the
 //     notch, unless they chose to always allow it.
 
@@ -109,9 +111,8 @@ func (g *gateInterceptor) hostCall(ctx context.Context, frame rpcFrame, name str
 		if !g.consentFor(ctx) {
 			return "", ConsentRefusal
 		}
-		if _, ok := args["delivery_mode"]; !ok {
-			args["delivery_mode"] = hostcomputer.DeliveryForeground
-		}
+		// Forced, not defaulted: the person's pointer and focus are theirs.
+		args["delivery_mode"] = hostcomputer.DeliveryBackground
 	}
 	params, _ := json.Marshal(map[string]any{"name": name, "arguments": args})
 	out, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": frame.ID, "method": "tools/call", "params": json.RawMessage(params)})

@@ -12,8 +12,8 @@ import (
 
 // A bot on the person's Mac: only the policy's tools reach the driver,
 // each call carries the bot's session, acting calls wait for consent and
-// go to the foreground, and the bot never sees the bridge's own traffic.
-func TestHostBridgeEnforcesPolicySessionConsentAndForeground(t *testing.T) {
+// go to the background, and the bot never sees the bridge's own traffic.
+func TestHostBridgeEnforcesPolicySessionConsentAndBackground(t *testing.T) {
 	var mu sync.Mutex
 	snap := Snapshot{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +116,7 @@ func TestHostBridgeEnforcesPolicySessionConsentAndForeground(t *testing.T) {
 	}
 }
 
-func TestHostBridgeAllowsAndGoesForegroundByDefault(t *testing.T) {
+func TestHostBridgeAlwaysDeliversInTheBackground(t *testing.T) {
 	var forwarded, emitted []string
 	g := &gateInterceptor{
 		gate:    &GateClient{},
@@ -137,13 +137,14 @@ func TestHostBridgeAllowsAndGoesForegroundByDefault(t *testing.T) {
 		} `json:"params"`
 	}
 	_ = json.Unmarshal([]byte(forwarded[0]), &frame)
-	if frame.Params.Arguments["delivery_mode"] != "foreground" || frame.Params.Arguments["session"] != "ops" || frame.Params.Arguments["element_index"] != float64(3) {
+	if frame.Params.Arguments["delivery_mode"] != "background" || frame.Params.Arguments["session"] != "ops" || frame.Params.Arguments["element_index"] != float64(3) {
 		t.Fatalf("arguments = %v", frame.Params.Arguments)
 	}
-	// A bot that asks for the background keeps it.
-	g.fromBot(ctx, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"type_text","arguments":{"pid":7,"text":"x","delivery_mode":"background"}}}`)
-	if !strings.Contains(forwarded[1], `"delivery_mode":"background"`) {
-		t.Fatalf("background kept: %s", forwarded[1])
+	// A bot that asks for the foreground does not get it: the real
+	// pointer and focus stay the person's.
+	g.fromBot(ctx, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"type_text","arguments":{"pid":7,"text":"x","delivery_mode":"foreground"}}}`)
+	if !strings.Contains(forwarded[1], `"delivery_mode":"background"`) || strings.Contains(forwarded[1], "foreground") {
+		t.Fatalf("foreground was let through: %s", forwarded[1])
 	}
 	// Without a control endpoint and without always-allow, nothing acts.
 	g2 := &gateInterceptor{gate: &GateClient{}, host: &HostPolicy{Slug: "ops"}, forward: func(string) {}, emit: func(l string) { emitted = append(emitted, l) }, listIDs: map[string]bool{}, ended: make(chan struct{})}

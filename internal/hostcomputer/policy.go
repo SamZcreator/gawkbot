@@ -70,9 +70,8 @@ func AllowedTools() []string {
 
 // Delivery modes the driver accepts on acting tools.
 const (
-	// DeliveryForeground brings the window up and acts like a person would,
-	// visibly. The default on the person's Mac: trust comes from seeing it.
-	DeliveryForeground = "foreground"
-	// DeliveryBackground posts input to the app without taking focus.
+	// DeliveryBackground posts input to the app without taking focus or
+	// moving the real pointer; the bot's virtual cursor shows where it
+	// works. The only mode bots get on the person's Mac.
 	DeliveryBackground = "background"
 )

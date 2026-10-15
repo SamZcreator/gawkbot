@@ -6,10 +6,10 @@ reference for the mechanics is the code it names.
 ## What it is
 
 A bot whose computer is set to **This Mac** (`officeMember.Computer =
-"mac"`) works on the person's own screen, in the foreground, with its own
-cursor: the person watches it the way they would watch a colleague at their
-keyboard. It is the visible, trust-first alternative to the container and
-cloud desktops; speed matters less than seeing it.
+"mac"`) works on the person's own screen through its own virtual cursor: the
+person watches it work, and it never moves their pointer or takes their
+focus, so they keep using the Mac and several bots can work at once. It is
+the visible, trust-first alternative to the container and cloud desktops.
 
 ## Who runs what
 
@@ -32,8 +32,10 @@ the bot's own cursor. The clipboard, the browser's logged-in profile,
 recordings and the driver's configuration are refused on the near side.
 
 Every call carries the bot's session, so the driver draws a cursor in the
-bot's colour with its name. Acting calls are delivered in the foreground
-unless the bot asks for the background.
+bot's colour with its name. Acting calls are always delivered in the
+background (`delivery_mode: background`, forced by the bridge): input goes
+straight to the app, and the real pointer and keyboard focus stay the
+person's. A bot cannot ask for the foreground.
 
 ## Consent
 
