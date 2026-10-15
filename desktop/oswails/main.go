@@ -135,6 +135,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "launcher:", err)
 			os.Exit(1)
 		}
+		launcher.SetBrokerConfigurator(officeBrokerWiring(launcher))
 		go func() {
 			launcher.SetNoOpen(true)
 			if err := launcher.PreflightWeb(); err != nil {
