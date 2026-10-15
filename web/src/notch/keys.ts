@@ -33,6 +33,7 @@ export type NotchAction =
   | { type: "voice_stop" }
   | { type: "message_lead" }
   | { type: "open_full" }
+  | { type: "settings" }
   | { type: "close" }
   | { type: "none" };
 
@@ -93,6 +94,8 @@ function letterAction(
       return { type: "message_lead" };
     case "o":
       return { type: "open_full" };
+    case ",":
+      return { type: "settings" };
     case "d":
       return selected?.kind === "finished"
         ? { type: "done" }
@@ -160,5 +163,6 @@ export const SHORTCUTS: readonly [string, string][] = [
   ["R", "reply"],
   ["V", "hold to talk"],
   ["O", "full view"],
+  [",", "settings"],
   ["Esc", "close"],
 ];

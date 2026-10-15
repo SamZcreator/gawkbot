@@ -3,6 +3,7 @@ import { useCallback, useMemo } from "react";
 import { type BotRuntime, BotRuntimeContext } from "../lib/botRuntime";
 import { EXPANDED_HEIGHT, EXPANDED_WIDTH } from "./bridge";
 import { NotchPanel, type PanelProps } from "./NotchPanel";
+import { NotchSettings } from "./NotchSettings";
 import {
   NotchStage,
   NotchStrip,
@@ -115,7 +116,16 @@ export function NotchView(props: NotchViewProps) {
             arrival={props.arrival}
             expanded={expanded}
           />
-          {expanded && state && props.screen && isAgentScreen(props.screen) ? (
+          {expanded && state && props.screen?.kind === "settings" ? (
+            <NotchSettings
+              state={state}
+              onBack={props.onBack ?? (() => undefined)}
+              onOpen={props.onOpen}
+            />
+          ) : expanded &&
+            state &&
+            props.screen &&
+            isAgentScreen(props.screen) ? (
             isSplit(width, props.screen) ? (
               <div className="nsplit" data-testid="notch-split">
                 <div

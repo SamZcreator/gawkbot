@@ -65,6 +65,7 @@ await context.route(api("/api-token"), (r) => r.fulfill({ json: { token: "t" } }
 await context.route(api("/api/events"), (r) => r.abort());
 await context.route(api("/api/notch/state"), (r) => r.fulfill({ json: STATE }));
 await context.route(api("/api/messages"), (r) => r.fulfill({ json: THREAD }));
+await context.route(api("/api/config"), (r) => r.fulfill({ json: { notch_jump_out: true, notch_announce: true, mac_computer_always_allow: false, openai_key_set: true, realtime_voice: "marin" } }));
 await context.route(api("/api/realtime/status"), (r) => r.fulfill({ json: { configured: false } }));
 const page = await context.newPage();
 const errors = [];
@@ -88,6 +89,16 @@ await page.getByRole("button", { name: "Message Designer" }).click();
 await page.waitForSelector("[data-testid=notch-thread-designer]", { timeout: 10_000 });
 await page.waitForTimeout(700);
 await page.screenshot({ path: `${OUT}/04-thread.png`, animations: "disabled" });
+// The notch's own settings.
+const sp = await context.newPage();
+await sp.goto(`${BASE}/notch.html?nw=180&nh=32&ew=40&xw=640&xh=820`, { waitUntil: "load" });
+await sp.waitForSelector(".notch-shell", { timeout: 15_000 });
+await sp.evaluate(() => window.gawkNotch && window.gawkNotch.setExpanded(true));
+await sp.waitForSelector(".npanel", { timeout: 10_000 });
+await sp.getByRole("button", { name: "Settings" }).click();
+await sp.waitForSelector("[data-testid=notch-settings]", { timeout: 10_000 });
+await sp.waitForTimeout(600);
+await sp.screenshot({ path: `${OUT}/07-settings.png`, animations: "disabled" });
 // The dock cards.
 const dock = await context.newPage();
 await dock.goto(`${BASE}/notch.html?dock=1`, { waitUntil: "load" });

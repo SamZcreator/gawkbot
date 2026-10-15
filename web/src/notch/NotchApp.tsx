@@ -50,6 +50,7 @@ import {
   HOME,
   isAgentScreen,
   type NotchScreen,
+  SETTINGS,
   screenForTarget,
 } from "./screens";
 import { play, setSoundEnabled, soundEnabled, unlock } from "./sounds";
@@ -450,10 +451,11 @@ export function NotchApp({
     open: openComposer,
     voice: setVoice,
     talk: talkKey,
+    settings: () => setScreen(SETTINGS),
     openFull,
     close: () => {
       if (talk.phase !== "idle" || talk.said) talk.end();
-      else if (isAgentScreen(screen)) goHome();
+      else if (screen.kind !== "home") goHome();
       else if (composer) cancelComposer();
       else if (inApp) postNative({ type: "collapse" });
       else setExpanded(false);
@@ -490,6 +492,7 @@ export function NotchApp({
         peeker={peeker}
         lessonStep={lessonStep}
         screen={screen}
+        onSettings={() => setScreen(SETTINGS)}
         onBack={goHome}
         onStop={(slug) =>
           void stopBot(slug).catch(() => setError("Could not stop it"))

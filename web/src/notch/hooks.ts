@@ -320,6 +320,8 @@ export interface KeyHandlers {
   close: () => void;
   /** Open the full app at the selected question's conversation. */
   openFull: () => void;
+  /** The notch's own settings screen. */
+  settings?: () => void;
 }
 
 /** Runs one keyboard action. Returns false when the key was not ours. */
@@ -373,6 +375,9 @@ export function runKeyAction(action: NotchAction, h: KeyHandlers): boolean {
       return true;
     case "open_full":
       h.openFull();
+      return true;
+    case "settings":
+      h.settings?.();
       return true;
     default:
       return false;

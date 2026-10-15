@@ -86,6 +86,8 @@ export interface PanelProps {
   voice?: Pick<RealtimeTalk, "phase" | "heard" | "said" | "error">;
   /** Home as the left column of a split: the lead's box and the key help stay out. */
   compact?: boolean;
+  /** Opens the notch's own settings screen. */
+  onSettings?: () => void;
   onLessonPracticed?: () => void;
   onLessonSkip?: () => void;
 }
@@ -870,6 +872,17 @@ export function NotchPanel(props: PanelProps) {
         >
           {soundOn ? "🔊" : "🔈"}
         </button>
+        {props.onSettings ? (
+          <button
+            type="button"
+            className="nicon"
+            aria-label="Settings"
+            title="The notch's settings (,)"
+            onClick={props.onSettings}
+          >
+            ⚙
+          </button>
+        ) : null}
       </NotchHero>
 
       <div className="nscroll">

@@ -8,7 +8,10 @@ import type { ReplyTarget } from "./NotchPanel";
  */
 export type NotchScreen =
   | { kind: "home" }
-  | { kind: "agent"; slug: string; name: string; channel: string };
+  | { kind: "agent"; slug: string; name: string; channel: string }
+  | { kind: "settings" };
+
+export const SETTINGS: NotchScreen = { kind: "settings" };
 
 export const HOME: NotchScreen = { kind: "home" };
 
